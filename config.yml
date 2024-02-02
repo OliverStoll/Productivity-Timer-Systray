@@ -30,9 +30,9 @@ default_settings:
   number_of_timers: 4
   step_size: 5
   # features
-  Hide Windows: true
-  Spotify: true
-  Webhooks: true
+  Hide Windows: false
+  Spotify: false
+  Webhooks: false
   VOLUME: 1
 
 
