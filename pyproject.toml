@@ -1,0 +1,53 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry]
+name = "python-template"
+version = "0.1.0"
+description = "Sample description"
+authors = ["Oliver Stoll <oliverstoll.berlin@gmail.com>"]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = "^3.11, <3.13"  # set for pyinstaller
+python-dotenv = "^1.0.0"
+pystray = "^0.19.5"
+pillow = "^10.2.0"
+tkcalendar = "^1.6.1"
+pygame = "^2.5.2"
+datetime = "^5.4"
+spotipy = "^2.23.0"
+pyautogui = "^0.9.54"
+
+
+[tool.poetry.group.cloud]
+optional = true
+[tool.poetry.group.cloud.dependencies]
+uvicorn = "^0.27.0.post1"
+fastapi = "^0.109.0"
+google-cloud-logging = "^3.9.0"
+
+
+[tool.poetry.group.dev.dependencies]
+poetry = "^1.7.1"
+pre-commit = "^3.6.0"
+ruff = "^0.1.13"
+pytest = "^7.4.4"
+mypy = "^1.8.0"
+sphinx = "^7.2.6"
+sphinx-rtd-theme = "^2.0.0"
+sphinx-serve = "^1.0.1"
+myst-parser = "^2.0.0"
+pyinstaller = "^6.3.0"
+
+
+[tool.ruff]
+line-length = 100
+[tool.ruff.lint.pylint]
+max-statements = 16
+
+[tool.mypy]
+python_version = "3.11"

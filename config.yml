@@ -1,0 +1,41 @@
+#####   INTERNAL SETTINGS   #####
+app_name: 'Pomodoro'
+sounds:
+  start: 'res/start-sound.mp3'
+  pause: 'res/pause-sound.mp3'
+states:
+  WORK:
+    color: '#ff9800'
+    webhook: 'http://homeassistant.local:8123/api/webhook/pomodoro-work'
+  READY:
+    color: '#e65100'
+    webhook: 'http://homeassistant.local:8123/api/webhook/pomodoro-work'
+  PAUSE:
+    color: '#1aa7ec'
+    webhook: 'http://homeassistant.local:8123/api/webhook/pomodoro-pause'
+  DONE:
+    color: '#4caf50'
+    webhook: 'http://homeassistant.local:8123/api/webhook/pomodoro-pause'
+
+
+
+
+#####   USER SETTINGS   #####
+
+# POMODORO:
+settings_reference: 'Settings/Pomodoro'  # firebase reference
+default_settings:
+  work_timer: 60
+  pause_timer: 15
+  number_of_timers: 4
+  step_size: 5
+  # features
+  Hide Windows: true
+  Spotify: true
+  Webhooks: true
+  VOLUME: 1
+
+
+# SPOTIFY
+work_playlist: 'spotify:playlist:6CCoTOqud9zrWmuOl3L7VK'
+pause_playlist: 'spotify:playlist:4tCPOhgVlAFTtMSrT7T97j'

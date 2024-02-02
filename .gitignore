@@ -1,0 +1,18 @@
+# secrets
+.env
+*credentials.json
+*token.json
+
+# build
+venv/
+dist/
+build/
+_build/
+*.spec
+
+# dependencies & cache
+poetry.lock
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.cache
