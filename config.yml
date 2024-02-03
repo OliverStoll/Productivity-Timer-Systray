@@ -30,7 +30,7 @@ default_settings:
   number_of_timers: 4
   step_size: 5
   # features
-  Hide Windows: false
+  Hide Windows: true
   Spotify: false
   Webhooks: false
   VOLUME: 1
@@ -39,3 +39,6 @@ default_settings:
 # SPOTIFY
 work_playlist: 'spotify:playlist:6CCoTOqud9zrWmuOl3L7VK'
 pause_playlist: 'spotify:playlist:4tCPOhgVlAFTtMSrT7T97j'
+SPOTIFY:
+  redirect_uri: "http://localhost:7787"
+  scope: "user-read-playback-state user-modify-playback-state user-read-currently-playing"
