@@ -103,6 +103,11 @@ class PomodoroApp:
                 "Settings",
                 Menu(
                     Item(
+                        f"Already worked: {self.time_done / self.work_timer_duration:.1f} blocks",
+                        action=None,
+                    ),
+                    pystray.Menu.SEPARATOR,
+                    Item(
                         f"Work +{step_size}", lambda: self._change_timer_setting("WORK", step_size)
                     ),
                     Item(
@@ -250,7 +255,7 @@ class PomodoroApp:
 
 
 if __name__ == "__main__":
-    _firebase_project = secret("FIREBASE_PROJECT")
+    _firebase_db_url = secret("FIREBASE_DB_URL")
     _spotify_info = {
         "device_name": secret("SPOTIFY_DEVICE_NAME"),
         "client_id": secret("SPOTIFY_CLIENT_ID"),
@@ -258,5 +263,5 @@ if __name__ == "__main__":
         "redirect_uri": config_dict["SPOTIFY"]["redirect_uri"],
         "scope": config_dict["SPOTIFY"]["scope"],
     }
-    pomo_app = PomodoroApp(firebase_rdb_url=_firebase_project, spotify_info=_spotify_info)
+    pomo_app = PomodoroApp(firebase_rdb_url=_firebase_db_url, spotify_info=_spotify_info)
     pomo_app.run()

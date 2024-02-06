@@ -1,5 +1,6 @@
 import requests
 import json
+from pandas import DataFrame
 
 from src._utils.logger import create_logger
 
@@ -69,6 +70,23 @@ class FirebaseHandler:
             url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
         )
         self.log.info(f"Set entry {ref} with data {data} in firebase. Response: {response.text}")
+
+    def set_entry_df(self, ref: str, df: DataFrame):
+        """Set an df entry in firebase, by first converting it to a dictionary"""
+        if self._check_inactive():
+            return
+        data = df.to_dict(orient="index")
+        response = requests.put(
+            url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
+        )
+        self.log.info(f"Set df entry {ref} in firebase. Response: {response.text}")
+
+    def get_entry_df(self, ref: str) -> DataFrame:
+        """Get an df entry from firebase, by converting it to a dictionary"""
+        if self._check_inactive():
+            return
+        data = requests.get(url=f"{self.database_url}/{ref}.json").json()
+        return DataFrame.from_dict(data, orient="index")
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ A Pomodoro Timer with Spotify & Home Assistant Integration.
 ## Add Secrets File to use additional Features
 
 To play spotify playlists on start of work and pause, and changing the timer duration while it's running) , this package needs an `.env` file in the root directory with the following content:
-- `FIREBASE_PROJECT`: Link to your Firebase Realtime Database (needs to be unlocked for outside access)
+- `FIREBASE_DB_URL`: Link to your Firebase Realtime Database (needs to be unlocked for outside access)
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
 - `SPOTIFY_DEVICE_NAME`: Friendly name of the Spotify Device to play music on while working. (Kept in secrets instead of config, to not be shared between different workstations by accident)
