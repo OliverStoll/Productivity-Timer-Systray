@@ -11,9 +11,7 @@ class FirebaseHandler:
 
         Currently only supports unauthenticated access."""
         self.log = create_logger("Firebase")
-        self.headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-        }
+        self.headers = {"Content-Type": "application/x-www-form-urlencoded"}
         self.database_url = realtime_db_url
         if not self.database_url:
             self.log.warn(
@@ -72,7 +70,7 @@ class FirebaseHandler:
         self.log.info(f"Set entry {ref} with data {data} in firebase. Response: {response.text}")
 
     def set_entry_df(self, ref: str, df: DataFrame):
-        """Set an df entry in firebase, by first converting it to a dictionary"""
+        """Set a dataframe entry in firebase, by first converting it to a dictionary"""
         if self._check_inactive():
             return
         data = df.to_dict(orient="index")
@@ -81,10 +79,10 @@ class FirebaseHandler:
         )
         self.log.info(f"Set df entry {ref} in firebase. Response: {response.text}")
 
-    def get_entry_df(self, ref: str) -> DataFrame:
-        """Get an df entry from firebase, by converting it to a dictionary"""
+    def get_entry_df(self, ref: str) -> DataFrame | None:
+        """Get a dataframe entry from firebase, by converting it from a dictionary"""
         if self._check_inactive():
-            return
+            return None
         data = requests.get(url=f"{self.database_url}/{ref}.json").json()
         return DataFrame.from_dict(data, orient="index")
 

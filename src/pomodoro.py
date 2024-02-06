@@ -6,6 +6,7 @@ import pystray
 from pystray import Menu, MenuItem as Item
 from time import sleep
 from threading import Thread
+from pprint import pformat
 
 # local
 from src.systray.utils import draw_icon_text, draw_icon_circle, trigger_webhook
@@ -59,11 +60,11 @@ class PomodoroApp:
         try:
             self.settings = self.firebase.get_entry(ref=self.setting_ref)
             assert isinstance(self.settings, dict)
-            self.log.info(f"Loaded settings from firebase: {self.settings}")
+            self.log.info(f"Loaded settings from firebase: \n{pformat(self.settings)}")
         except Exception as e:
             self.log.warning(
                 f"Can't load settings from firebase: [{e}], "
-                f"using default settings {config_dict['default_settings']}."
+                f"using default settings {pformat(config_dict['default_settings'])}."
             )
             self.settings = config_dict["default_settings"]
             self.firebase.set_entry(ref=self.setting_ref, data=self.settings)
@@ -103,7 +104,7 @@ class PomodoroApp:
                 "Settings",
                 Menu(
                     Item(
-                        f"Already worked: {self.time_done / self.work_timer_duration:.1f} blocks",
+                        f"Worked: {self.time_done / self.work_timer_duration:.1f} blocks",
                         action=None,
                     ),
                     pystray.Menu.SEPARATOR,
@@ -207,10 +208,11 @@ class PomodoroApp:
             self.state = State.PAUSE
             self.current_time = self.pause_timer_duration
             play_sound(config_dict["sounds"]["pause"])
-            if self.spotify and self.settings["Spotify"]:
-                self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
             if self.settings["Hide Windows"]:
                 self.window_handler.hide_windows()
+            if self.spotify and self.settings["Spotify"]:
+                sleep(0.5)
+                self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
         elif self.state == State.PAUSE and self.time_done < self.total_work_duration:
             self.state = State.READY
             self.current_time = self.work_timer_duration
