@@ -1,5 +1,5 @@
 # fix working directory if running from a pyinstaller executable
-import src._utils.build.pyinstaller_fix  # noqa
+import src._utils.distribution.pyinstaller_fix  # noqa
 
 # global
 import pystray
