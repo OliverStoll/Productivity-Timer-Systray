@@ -16,7 +16,7 @@ from src._utils.logger import create_logger
 from src._utils.apis.spotify import SpotifyHandler
 from src._utils.apis.firebase import FirebaseHandler
 from src._utils.system.sound import play_sound
-from src._utils.system.windows.windows import WindowHandler
+from src._utils.system.programs_windows import WindowHandler
 
 
 class State:
@@ -142,9 +142,10 @@ class PomodoroApp:
                         "Spotify", enabled=lambda item: self.spotify is not None
                     ),
                     _get_feature_setting_item("Webhooks"),
+                    pystray.Menu.SEPARATOR,
+                    Item("Exit", self.exit, enabled=False),
                 ),
             ),
-            Item("Exit", self.exit),
         )
 
     def update_icon(self):
@@ -280,4 +281,3 @@ if __name__ == "__main__":
         "scope": config_dict["SPOTIFY"]["scope"],
     }
     pomo_app = PomodoroApp(firebase_rdb_url=_firebase_db_url, spotify_info=_spotify_info)
-    # pomo_app.run()

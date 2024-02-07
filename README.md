@@ -32,17 +32,18 @@ When parts of the secrets are missing, the app will still work, but without the 
 After cloning the repository and creating the secrets file & virtual environment, run to install the dependencies and build the executable:
 ```shell
 # Codeblock is reversed due to Pycharm bug
-pyinstaller -i ../res/pomodoro.ico -n Pomo --onefile --noconsole --add-data "../config.yml;." --add-data "../res/*;res/" --specpath build/ .\src\pomodoro.py
 poetry install --only main --no-root
 pip install poetry
 ```
-Additionaly u can build an App that keeps the Pomo alive (restarting every 5 Minutes if closed):
 ```shell
-pyinstaller -i ../res/pomodoro.ico -n Keep_Pomo_Alive --onefile --specpath build/ .\src\keep_alive.py
+pyinstaller -i ../res/pomodoro.ico -n Pomo --onefile --noconsole --add-data "../config.yml;." --add-data "../.env;." --add-data "../res/*;res/" --specpath build/ .\src\pomodoro.py
+```
+```shell
+pyinstaller -i ../res/pomodoro.ico -n Keep_Pomo_Alive --onefile --noconsole --specpath build/ .\src\keep_alive.py
 ```
 
 ## Setup Easy Access (*Windows*)
 - Run the app once
 - Display the `Pomo.exe` app in "*Taskbar-Settings -> Other system tray icons*" in the Taskbar settings
 - Pin the Pomo app to the Start Menu
-- Create shortcuts to the apps and place it in the Startup folder (`shell:startup` path)
+- Create a shortcut to the app and place it in the Startup folder (`shell:startup` path)
