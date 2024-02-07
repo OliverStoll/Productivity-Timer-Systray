@@ -26,6 +26,7 @@ class State:
     PAUSE = config_dict["states"]["PAUSE"]
     READY = config_dict["states"]["READY"]
     DONE = config_dict["states"]["DONE"]
+    STARTING = config_dict["states"]["STARTING"]
 
 
 class PomodoroApp:
@@ -34,7 +35,8 @@ class PomodoroApp:
     ):
         self.log = create_logger("Pomodoro Timer")
         self.name = config_dict["app_name"]
-        # settings
+        self._init_stub()
+        # try load real settings
         self.firebase = FirebaseHandler(realtime_db_url=firebase_rdb_url)
         self._load_settings()
         # apis
@@ -51,9 +53,18 @@ class PomodoroApp:
         # systray app
         self.stop_timer_thread_flag = False
         self.timer_thread = None
-        self.systray_icon = pystray.Icon(self.name)
         self.update_icon()
         self.update_menu()
+
+    def _init_stub(self):
+        self.settings = config_dict["default_settings"]
+        self.state = State.STARTING
+        self.systray_icon = pystray.Icon(self.name)
+        self.time_done = 0
+        self.work_timer_duration = 60
+        self.spotify = None
+        self.update_icon()
+        self.run()
 
     def _load_settings(self):
         self.setting_ref = config_dict["settings_reference"]
@@ -67,7 +78,10 @@ class PomodoroApp:
                 f"using default settings {pformat(config_dict['default_settings'])}."
             )
             self.settings = config_dict["default_settings"]
-            self.firebase.set_entry(ref=self.setting_ref, data=self.settings)
+            try:
+                self.firebase.set_entry(ref=self.setting_ref, data=self.settings)
+            except Exception as e:
+                self.log.warn(f"Could not save default settings to Firebase: {e}")
 
     def _init_spotify(self, spotify_info):
         try:
@@ -135,7 +149,7 @@ class PomodoroApp:
 
     def update_icon(self):
         self.update_menu()
-        if self.state == State.DONE:
+        if self.state in [State.DONE, State.STARTING]:
             self.systray_icon.icon = draw_icon_circle(color=self.state["color"])
         else:
             self.systray_icon.icon = draw_icon_text(
@@ -266,4 +280,4 @@ if __name__ == "__main__":
         "scope": config_dict["SPOTIFY"]["scope"],
     }
     pomo_app = PomodoroApp(firebase_rdb_url=_firebase_db_url, spotify_info=_spotify_info)
-    pomo_app.run()
+    # pomo_app.run()

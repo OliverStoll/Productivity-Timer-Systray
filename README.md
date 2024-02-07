@@ -36,10 +36,13 @@ pyinstaller -i ../res/pomodoro.ico -n Pomo --onefile --noconsole --add-data "../
 poetry install --only main --no-root
 pip install poetry
 ```
+Additionaly u can build an App that keeps the Pomo alive (restarting every 5 Minutes if closed):
+```shell
+pyinstaller -i ../res/pomodoro.ico -n Keep_Pomo_Alive --onefile --specpath build/ .\src\keep_alive.py
+```
 
 ## Setup Easy Access (*Windows*)
 - Run the app once
 - Display the `Pomo.exe` app in "*Taskbar-Settings -> Other system tray icons*" in the Taskbar settings
-- Pin the app to the Start Menu
-- Create a shortcut to the app and place it in the Startup folder (`shell:startup` path)
-- Create a Task schedule to run the "restart_pomo.ps1" script every 10 minutes to restart the app if it crashes or is closed by accident
+- Pin the Pomo app to the Start Menu
+- Create shortcuts to the apps and place it in the Startup folder (`shell:startup` path)

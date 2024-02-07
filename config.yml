@@ -16,6 +16,8 @@ states:
   DONE:
     color: '#4caf50'
     webhook: 'http://homeassistant.local:8123/api/webhook/pomodoro-pause'
+  STARTING:
+    color: '#e65100'
 
 
 
