@@ -4,6 +4,7 @@ import src._utils.distribution.pyinstaller_fix  # noqa
 # global
 import pystray
 from pystray import Menu, MenuItem as Item
+from datetime import datetime
 from time import sleep
 from threading import Thread
 from pprint import pformat
@@ -46,6 +47,7 @@ class PomodoroApp:
         # timer values
         self.state = State.READY
         self.time_done = 0
+        self.time_done_date = ""
         self.work_timer_duration = self.settings["work_timer"]
         self.total_work_duration = self.settings["number_of_timers"] * self.work_timer_duration
         self.pause_timer_duration = self.settings["pause_timer"]
@@ -118,7 +120,7 @@ class PomodoroApp:
                 "Settings",
                 Menu(
                     Item(
-                        f"Worked: {self.time_done / self.work_timer_duration:.1f} blocks",
+                        f"Worked {self.time_done / self.work_timer_duration:.1f} blocks",
                         action=None,
                     ),
                     pystray.Menu.SEPARATOR,
@@ -141,9 +143,9 @@ class PomodoroApp:
                     _get_feature_setting_item(
                         "Spotify", enabled=lambda item: self.spotify is not None
                     ),
-                    _get_feature_setting_item("Webhooks"),
+                    _get_feature_setting_item("Home Assistant"),
                     pystray.Menu.SEPARATOR,
-                    Item("Exit", self.exit, enabled=False),
+                    Item("Exit", self.exit, enabled=True),
                 ),
             ),
         )
@@ -200,7 +202,7 @@ class PomodoroApp:
         play_sound(config_dict["sounds"]["start"], volume=self.settings["VOLUME"])
         if self.spotify and self.settings["Spotify"]:
             self.spotify.play_playlist(playlist_uri=config_dict["work_playlist"])
-        if self.settings["Webhooks"]:
+        if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         self.timer_thread = Thread(target=self.run_timer)
         self.timer_thread.start()
@@ -213,7 +215,7 @@ class PomodoroApp:
         # features
         if self.spotify and self.settings["Spotify"]:
             self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
-        if self.settings["Webhooks"]:
+        if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         Thread.join(self.timer_thread)  # should terminate within 0.1s
 
@@ -224,9 +226,10 @@ class PomodoroApp:
             self.current_time = self.pause_timer_duration
             play_sound(config_dict["sounds"]["pause"])
             if self.settings["Hide Windows"]:
-                self.window_handler.hide_windows()
-            if self.spotify and self.settings["Spotify"]:
                 sleep(0.5)
+                self.window_handler.minimize_open_windows()
+            if self.spotify and self.settings["Spotify"]:
+                sleep(1)
                 self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
         elif self.state == State.PAUSE and self.time_done < self.total_work_duration:
             self.state = State.READY
@@ -239,7 +242,7 @@ class PomodoroApp:
 
         # reset the timer, update the icon and trigger webhook
         self.update_icon()
-        if self.settings["Webhooks"]:
+        if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         if self.state == State.PAUSE:
             self.run_timer()
@@ -264,7 +267,12 @@ class PomodoroApp:
             # update the time after a full minute (seconds are not recorded)
             self.current_time -= 1
             if self.state == State.WORK:
+                current_date = datetime.now().strftime("%Y-%m-%d")
+                if self.time_done_date != current_date:
+                    self.time_done_date = current_date
+                    self.time_done = 0
                 self.time_done += 1
+
             self.update_icon()
         # check if the timer is done and switch to the next state
         if self.current_time == 0:

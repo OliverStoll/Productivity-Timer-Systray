@@ -34,7 +34,7 @@ default_settings:
   # features
   Hide Windows: true
   Spotify: false
-  Webhooks: false
+  Home Assistant: false
   VOLUME: 1
 
 

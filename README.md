@@ -39,7 +39,10 @@ pip install poetry
 pyinstaller -i ../res/pomodoro.ico -n Pomo --onefile --noconsole --add-data "../config.yml;." --add-data "../.env;." --add-data "../res/*;res/" --specpath build/ .\src\pomodoro.py
 ```
 ```shell
-pyinstaller -i ../res/pomodoro.ico -n Keep_Pomo_Alive --onefile --noconsole --specpath build/ .\src\keep_alive.py
+pyinstaller -i ../res/pomodoro.ico -n Keep_Pomo_Alive --onefile --noconsole --specpath build/ .\src\keep_pomo_alive.py
+```
+```shell
+pyinstaller -n Close_Spotify_On_Startup --onefile --noconsole --specpath build/ .\src\close_spotify_startup.py
 ```
 
 ## Setup Easy Access (*Windows*)

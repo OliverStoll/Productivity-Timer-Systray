@@ -1,5 +1,18 @@
 import pygetwindow as gw
 import subprocess
+from pywinauto import Desktop
+import psutil
+
+
+def close_window_by_process(process_name):
+    windows = Desktop(backend="uia").windows()
+    for win in windows:
+        pid = win.process_id()
+        win_process_name = psutil.Process(pid).name()
+        if win_process_name == process_name:
+            win.close()
+            return True
+    return False
 
 
 def is_program_running(program_name):
@@ -34,7 +47,7 @@ class WindowHandler:
         self.exclude_list = ["Program Manager", "Windows Input Experience"]
         self.minimized_windows = []
 
-    def hide_windows(self):
+    def minimize_open_windows(self):
         all_windows = gw.getWindowsWithTitle("")
         self.minimized_windows = []
         for win in all_windows:
