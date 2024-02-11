@@ -1,4 +1,6 @@
 # fix working directory if running from a pyinstaller executable
+import threading
+
 import src._utils.distribution.pyinstaller_fix  # noqa
 
 # global
@@ -36,6 +38,7 @@ class PomodoroApp:
     ):
         self.log = create_logger("Pomodoro Timer")
         self.name = config_dict["app_name"]
+        self._update_icon_lock = threading.Lock()
         self._init_stub()
         # try load real settings
         self.firebase = FirebaseHandler(realtime_db_url=firebase_rdb_url)
@@ -57,11 +60,12 @@ class PomodoroApp:
         self.timer_thread = None
         self.update_icon()
         self.update_menu()
+        self.log.info("Pomodoro Timer initialised.")
 
     def _init_stub(self):
         self.settings = config_dict["default_settings"]
         self.state = State.STARTING
-        self.systray_icon = pystray.Icon(self.name)
+        self.systray_app = pystray.Icon(self.name)
         self.time_done = 0
         self.work_timer_duration = 60
         self.spotify = None
@@ -103,7 +107,7 @@ class PomodoroApp:
             )
 
         step_size = self.settings["step_size"]
-        self.systray_icon.menu = Menu(
+        self.systray_app.menu = Menu(
             Item(
                 "Start",
                 self.menu_button_start,
@@ -151,21 +155,19 @@ class PomodoroApp:
         )
 
     def update_icon(self):
-        self.update_menu()
-        if self.state in [State.DONE, State.STARTING]:
-            self.systray_icon.icon = draw_icon_circle(color=self.state["color"])
-        else:
-            self.systray_icon.icon = draw_icon_text(
-                text=str(self.current_time), color=self.state["color"]
-            )
+        with self._update_icon_lock:
+            self.update_menu()
+            if self.state in [State.DONE, State.STARTING]:
+                self.systray_app.icon = draw_icon_circle(color=self.state["color"])
+            else:
+                self.systray_app.icon = draw_icon_text(
+                    text=str(self.current_time), color=self.state["color"]
+                )
 
     def _change_timer_setting(self, timer, value):
         assert timer in ["WORK", "PAUSE"]
-        if (
-            timer == "WORK"
-            and self.state != State.PAUSE
-            or timer == "PAUSE"
-            and self.state == State.PAUSE
+        if (timer == "WORK" and self.state != State.PAUSE) or (
+            timer == "PAUSE" and self.state == State.PAUSE
         ):
             self.current_time += value
             self.update_icon()
@@ -187,18 +189,20 @@ class PomodoroApp:
         )
 
     def run(self):
-        self.systray_icon.run_detached()
+        self.systray_app.run_detached()
 
     def exit(self):
         """Function that is called when the exit button is pressed. Sets the stop_timer_thread_flag for the timer thread."""
+        self.log.info("Exiting Pomodoro Timer")
         self.stop_timer_thread_flag = True
         sleep(0.11)
-        self.systray_icon.stop()
+        self.systray_app.stop()
 
     def menu_button_start(self):
         """Function that is called when the start button is pressed"""
+        self.log.info("Menu Start pressed.")
         self.state = State.WORK
-        self.update_icon()
+        # self.update_icon()
         play_sound(config_dict["sounds"]["start"], volume=self.settings["VOLUME"])
         if self.spotify and self.settings["Spotify"]:
             self.spotify.play_playlist(playlist_uri=config_dict["work_playlist"])
@@ -206,9 +210,11 @@ class PomodoroApp:
             trigger_webhook(url=self.state["webhook"])
         self.timer_thread = Thread(target=self.run_timer)
         self.timer_thread.start()
+        self.update_icon()
 
     def menu_button_stop(self):
         """Function that is called when the stop button is pressed"""
+        self.log.info("Menu Stop pressed.")
         self.state = State.READY
         self.update_icon()
         self.stop_timer_thread_flag = True
@@ -217,7 +223,8 @@ class PomodoroApp:
             self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
         if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
-        Thread.join(self.timer_thread)  # should terminate within 0.1s
+        self.update_icon()
+        # Thread.join(self.timer_thread)  # should terminate within 0.1s
 
     def _switch_to_next_state(self):
         """Switch to the next state and update the icon."""

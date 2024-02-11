@@ -53,9 +53,12 @@ class SpotifyHandler:
     def play_playlist(self, playlist_uri: str):
         """Play a playlist using its uri"""
         self.log.debug(f"Playing playlist {playlist_uri} on {self.device_name}")
-        self.api.start_playback(
-            context_uri=playlist_uri, device_id=self.device_ids[self.device_name]
-        )
+        try:
+            self.api.start_playback(
+                context_uri=playlist_uri, device_id=self.device_ids[self.device_name]
+            )
+        except Exception as e:
+            self.log.error(f"Failed to play playlist: {e}")
 
     def toggle_playback(self):
         """Toggle playback (might behave unexpectedly if nothing is playing)"""
