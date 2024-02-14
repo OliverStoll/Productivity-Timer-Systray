@@ -38,6 +38,7 @@ class PomodoroApp:
     ):
         self.log = create_logger("Pomodoro Timer")
         self.name = config_dict["app_name"]
+        self.firebase_time_done_ref = config_dict["FIREBASE_TIME_DONE_REF"]
         self._update_icon_lock = threading.Lock()
         self._init_stub()
         # try load real settings
@@ -49,12 +50,18 @@ class PomodoroApp:
         # todo: add homeassistant handler
         # timer values
         self.state = State.READY
-        self.time_done = 0
-        self.time_done_date = ""
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        time_worked_ref = f"{self.firebase_time_done_ref}/{current_date}/time_worked"
+        try:
+            self.time_worked = int(self.firebase.get_entry(ref=time_worked_ref))
+        except Exception as e:
+            self.log.warning(f"Can't load time_worked from firebase: [{e}], setting to 0.")
+            self.time_worked = 0
+        self.time_worked_date = ""
         self.work_timer_duration = self.settings["work_timer"]
         self.total_work_duration = self.settings["number_of_timers"] * self.work_timer_duration
         self.pause_timer_duration = self.settings["pause_timer"]
-        self.current_time = self.work_timer_duration
+        self.current_timer_value = self.work_timer_duration
         # systray app
         self.stop_timer_thread_flag = False
         self.timer_thread = None
@@ -66,7 +73,7 @@ class PomodoroApp:
         self.settings = config_dict["default_settings"]
         self.state = State.STARTING
         self.systray_app = pystray.Icon(self.name)
-        self.time_done = 0
+        self.time_worked = 0
         self.work_timer_duration = 60
         self.spotify = None
         self.update_icon()
@@ -124,7 +131,7 @@ class PomodoroApp:
                 "Settings",
                 Menu(
                     Item(
-                        f"Worked {self.time_done / self.work_timer_duration:.1f} blocks",
+                        f"Worked {self.time_worked / self.work_timer_duration:.1f} blocks",
                         action=None,
                     ),
                     pystray.Menu.SEPARATOR,
@@ -161,7 +168,7 @@ class PomodoroApp:
                 self.systray_app.icon = draw_icon_circle(color=self.state["color"])
             else:
                 self.systray_app.icon = draw_icon_text(
-                    text=str(self.current_time), color=self.state["color"]
+                    text=str(self.current_timer_value), color=self.state["color"]
                 )
 
     def _change_timer_setting(self, timer, value):
@@ -169,7 +176,7 @@ class PomodoroApp:
         if (timer == "WORK" and self.state != State.PAUSE) or (
             timer == "PAUSE" and self.state == State.PAUSE
         ):
-            self.current_time += value
+            self.current_timer_value += value
             self.update_icon()
         if timer == "WORK":
             self.work_timer_duration += value
@@ -230,7 +237,7 @@ class PomodoroApp:
         """Switch to the next state and update the icon."""
         if self.state == State.WORK:
             self.state = State.PAUSE
-            self.current_time = self.pause_timer_duration
+            self.current_timer_value = self.pause_timer_duration
             play_sound(config_dict["sounds"]["pause"])
             if self.settings["Hide Windows"]:
                 sleep(0.5)
@@ -238,14 +245,14 @@ class PomodoroApp:
             if self.spotify and self.settings["Spotify"]:
                 sleep(1)
                 self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
-        elif self.state == State.PAUSE and self.time_done < self.total_work_duration:
+        elif self.state == State.PAUSE and self.time_worked < self.total_work_duration:
             self.state = State.READY
-            self.current_time = self.work_timer_duration
+            self.current_timer_value = self.work_timer_duration
             if self.settings["Hide Windows"]:
                 self.window_handler.restore_windows()
-        elif self.state == State.PAUSE and self.time_done >= self.total_work_duration:
+        elif self.state == State.PAUSE and self.time_worked >= self.total_work_duration:
             self.state = State.DONE
-            self.current_time = self.work_timer_duration
+            self.current_timer_value = self.work_timer_duration
 
         # reset the timer, update the icon and trigger webhook
         self.update_icon()
@@ -254,6 +261,17 @@ class PomodoroApp:
         if self.state == State.PAUSE:
             self.run_timer()
 
+    def _increase_time_worked(self):
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        if self.time_worked_date != current_date:
+            self.log.info(f"New day: {current_date}. Resetting time_done.")
+            self.time_worked_date = current_date
+            self.time_worked = 1
+        else:
+            self.time_worked += 1
+        ref = f"{self.firebase_time_done_ref}/{current_date}"
+        self.firebase.update_value(ref=ref, key="time_worked", value=self.time_worked)
+
     def run_timer(self):
         """Function that runs the timer of the Pomodoro App (in a separate thread).
 
@@ -261,28 +279,23 @@ class PomodoroApp:
         the icon is updated. If the timer is done, the next state is switched to.
         """
         self.update_icon()
-        while self.current_time > 0:
-            # wait for a minute and continuously check if thread status changes
-            for i in range(600):
+        while self.current_timer_value > 0:
+            for i in range(
+                600
+            ):  # wait for a minute and continuously check if thread status changes
                 sleep(0.1)
                 if self.stop_timer_thread_flag:
                     self.state = State.READY
-                    self.current_time = self.work_timer_duration
+                    self.current_timer_value = self.work_timer_duration
                     self.update_icon()
                     self.stop_timer_thread_flag = False
                     return
-            # update the time after a full minute (seconds are not recorded)
-            self.current_time -= 1
+            self.current_timer_value -= 1
             if self.state == State.WORK:
-                current_date = datetime.now().strftime("%Y-%m-%d")
-                if self.time_done_date != current_date:
-                    self.time_done_date = current_date
-                    self.time_done = 0
-                self.time_done += 1
-
+                self._increase_time_worked()
             self.update_icon()
-        # check if the timer is done and switch to the next state
-        if self.current_time == 0:
+        if self.current_timer_value == 0:
+            self.log.info("Timer done. Switching to next state.")
             self._switch_to_next_state()
 
 

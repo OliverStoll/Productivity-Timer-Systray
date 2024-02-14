@@ -20,6 +20,10 @@ states:
     color: '#e65100'
 
 
+# Firebase
+FIREBASE_TIME_DONE_REF: 'Arbeitszeit'
+
+
 
 
 #####   USER SETTINGS   #####
