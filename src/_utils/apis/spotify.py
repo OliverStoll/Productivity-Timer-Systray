@@ -23,6 +23,7 @@ class SpotifyHandler:
                 scope=scope,
             ),
             retries=0,
+            requests_timeout=1,
         )
         self.device_ids = {device["name"]: device["id"] for device in self.api.devices()["devices"]}
         self.log.info(f"Initialised and found devices: {self.device_ids.keys()}")
