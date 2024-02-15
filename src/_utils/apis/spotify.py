@@ -21,7 +21,8 @@ class SpotifyHandler:
                 client_secret=client_secret,
                 redirect_uri=redirect_uri,
                 scope=scope,
-            )
+            ),
+            retries=0,
         )
         self.device_ids = {device["name"]: device["id"] for device in self.api.devices()["devices"]}
         self.log.info(f"Initialised and found devices: {self.device_ids.keys()}")

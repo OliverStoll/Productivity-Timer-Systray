@@ -262,6 +262,7 @@ class PomodoroApp:
             self.run_timer()
 
     def _increase_time_worked(self):
+        """Increase the time_worked counter and update it in firebase"""
         current_date = datetime.now().strftime("%Y-%m-%d")
         if self.time_worked_date != current_date:
             self.log.info(f"New day: {current_date}. Resetting time_done.")
@@ -280,9 +281,7 @@ class PomodoroApp:
         """
         self.update_icon()
         while self.current_timer_value > 0:
-            for i in range(
-                600
-            ):  # wait for a minute and continuously check if thread status changes
+            for i in range(600):
                 sleep(0.1)
                 if self.stop_timer_thread_flag:
                     self.state = State.READY
