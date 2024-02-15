@@ -57,7 +57,7 @@ class PomodoroApp:
         except Exception as e:
             self.log.warning(f"Can't load time_worked from firebase: [{e}], setting to 0.")
             self.time_worked = 0
-        self.time_worked_date = ""
+        self.time_worked_date = current_date
         self.work_timer_duration = self.settings["work_timer"]
         self.total_work_duration = self.settings["number_of_timers"] * self.work_timer_duration
         self.pause_timer_duration = self.settings["pause_timer"]
