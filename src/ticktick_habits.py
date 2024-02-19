@@ -144,14 +144,14 @@ class TicktickHabitApi:
             payload = {"add": [], "update": [checkin_data], "delete": []}
 
         try:
-            requests.post(url=url, data=json.dumps(payload), headers=self.headers).json()
+            response = requests.post(url=url, data=json.dumps(payload), headers=self.headers).json()
+            self.log.info(f"Posted Habit checkin with response: {response}")
         except Exception as e:
             self.log.error(f"Error posting habit checking: {e}")
 
 
 if __name__ == "__main__":
     api = TicktickHabitApi(cookies_path="../.ticktick_cookies")
-    response = api.checkin_simple(
+    api.checkin_simple(
         habit_name="Arbeiten", date_stamp=datetime.datetime.now().strftime("%Y%m%d"), status=2
     )
-    print(response)
