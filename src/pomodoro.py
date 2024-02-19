@@ -1,9 +1,8 @@
 # fix working directory if running from a pyinstaller executable
-import threading
-
 import src._utils.distribution.pyinstaller_fix  # noqa
 
 # global
+import threading
 import pystray
 from pystray import Menu, MenuItem as Item
 from datetime import datetime
@@ -50,16 +49,16 @@ class PomodoroApp:
         # todo: add homeassistant handler
         # timer values
         self.state = State.READY
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        time_worked_ref = f"{self.firebase_time_done_ref}/{current_date}/time_worked"
+        today = datetime.now().strftime("%Y-%m-%d")
+        time_worked_ref = f"{self.firebase_time_done_ref}/{today}/time_worked"
         try:
             self.time_worked = int(self.firebase.get_entry(ref=time_worked_ref))
         except Exception as e:
-            self.log.warning(f"Can't load time_worked from firebase: [{e}], setting to 0.")
+            self.log.warning(f"Can't load {today}: time_worked from firebase, setting to 0 [{e}]")
             self.time_worked = 0
-        self.time_worked_date = current_date
+        self.time_worked_date = today
         self.work_timer_duration = self.settings["work_timer"]
-        self.total_work_duration = self.settings["number_of_timers"] * self.work_timer_duration
+        self.daily_work_time_goal = self.settings["daily_work_time_goal"]
         self.pause_timer_duration = self.settings["pause_timer"]
         self.current_timer_value = self.work_timer_duration
         # systray app
@@ -212,7 +211,7 @@ class PomodoroApp:
         # self.update_icon()
         play_sound(config_dict["sounds"]["start"], volume=self.settings["VOLUME"])
         if self.spotify and self.settings["Spotify"]:
-            self.spotify.play_playlist(playlist_uri=config_dict["work_playlist"])
+            self.spotify.play_playlist_thread(playlist_uri=config_dict["work_playlist"])
         if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         self.timer_thread = Thread(target=self.run_timer)
@@ -227,7 +226,7 @@ class PomodoroApp:
         self.stop_timer_thread_flag = True
         # features
         if self.spotify and self.settings["Spotify"]:
-            self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
+            self.spotify.play_playlist_thread(playlist_uri=config_dict["pause_playlist"])
         if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         self.update_icon()
@@ -244,13 +243,13 @@ class PomodoroApp:
                 self.window_handler.minimize_open_windows()
             if self.spotify and self.settings["Spotify"]:
                 sleep(1)
-                self.spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
-        elif self.state == State.PAUSE and self.time_worked < self.total_work_duration:
+                self.spotify.play_playlist_thread(playlist_uri=config_dict["pause_playlist"])
+        elif self.state == State.PAUSE and self.time_worked < self.daily_work_time_goal:
             self.state = State.READY
             self.current_timer_value = self.work_timer_duration
             if self.settings["Hide Windows"]:
                 self.window_handler.restore_windows()
-        elif self.state == State.PAUSE and self.time_worked >= self.total_work_duration:
+        elif self.state == State.PAUSE and self.time_worked >= self.daily_work_time_goal:
             self.state = State.DONE
             self.current_timer_value = self.work_timer_duration
 

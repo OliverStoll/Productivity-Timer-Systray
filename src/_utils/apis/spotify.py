@@ -1,4 +1,5 @@
 import spotipy
+import threading
 from spotipy.oauth2 import SpotifyOAuth
 
 from src._utils.logger import create_logger
@@ -9,24 +10,15 @@ class SpotifyHandler:
     def __init__(
         self, device_name: str, client_id: str, client_secret: str, redirect_uri: str, scope: str
     ):
-        """Spotify client to interact with the Spotify API.
-
-        Takes a specific device name to play music on."""
+        """Spotify client to interact with the Spotify API. Takes a specific device name to play music on."""
         self.log = create_logger("Spotify")
         self.active = True
         self.device_name = device_name
         self.api = spotipy.Spotify(
-            auth_manager=SpotifyOAuth(
-                client_id=client_id,
-                client_secret=client_secret,
-                redirect_uri=redirect_uri,
-                scope=scope,
-            ),
-            retries=0,
-            requests_timeout=1,
+            auth_manager=SpotifyOAuth(client_id, client_secret, redirect_uri, scope=scope)
         )
         self.device_ids = {device["name"]: device["id"] for device in self.api.devices()["devices"]}
-        self.log.info(f"Initialised and found devices: {self.device_ids.keys()}")
+        self.log.info(f"Initialised and found devices: {list(self.device_ids.keys())}")
         assert device_name in self.device_ids.keys(), f"Device '{device_name}' not found"
 
     def search_track(self, track_name):
@@ -55,12 +47,28 @@ class SpotifyHandler:
     def play_playlist(self, playlist_uri: str):
         """Play a playlist using its uri"""
         self.log.debug(f"Playing playlist {playlist_uri} on {self.device_name}")
+        if playlist_uri is None or playlist_uri == "":
+            self.pause_playback()
+        else:
+            try:
+                self.api.start_playback(
+                    context_uri=playlist_uri, device_id=self.device_ids[self.device_name]
+                )
+            except Exception as e:
+                self.log.error(f"Failed to play playlist: {e}")
+
+    def play_playlist_thread(self, playlist_uri: str):
+        """Play a playlist using its uri in a new thread"""
+        thread = threading.Thread(target=self.play_playlist, args=(playlist_uri,))
+        thread.start()
+
+    def pause_playback(self):
+        """Pause playback when currently playing something"""
         try:
-            self.api.start_playback(
-                context_uri=playlist_uri, device_id=self.device_ids[self.device_name]
-            )
+            if self.get_current_playback() is not None:
+                self.api.pause_playback()
         except Exception as e:
-            self.log.error(f"Failed to play playlist: {e}")
+            self.log.error(f"Failed to pause playback: {e}")
 
     def toggle_playback(self):
         """Toggle playback (might behave unexpectedly if nothing is playing)"""

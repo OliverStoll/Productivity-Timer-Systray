@@ -33,8 +33,8 @@ settings_reference: 'Settings/Pomodoro'  # firebase reference
 default_settings:
   work_timer: 60
   pause_timer: 15
-  number_of_timers: 4
   step_size: 5
+  daily_work_time_goal: 240
   # features
   Hide Windows: true
   Spotify: false
@@ -44,7 +44,8 @@ default_settings:
 
 # SPOTIFY
 work_playlist: 'spotify:playlist:6CCoTOqud9zrWmuOl3L7VK'
-pause_playlist: 'spotify:playlist:4tCPOhgVlAFTtMSrT7T97j'
+pause_playlist:
+# 'spotify:playlist:4tCPOhgVlAFTtMSrT7T97j'
 SPOTIFY:
   redirect_uri: "http://localhost:7787"
   scope: "user-read-playback-state user-modify-playback-state user-read-currently-playing"
