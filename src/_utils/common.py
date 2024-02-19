@@ -6,18 +6,18 @@ from os import getenv as secret  # noqa: F401
 from src._utils.logger import create_logger
 
 
-log = create_logger("Utils_Common")
-
+log = create_logger("Utilities")
 
 ROOT_DIR = os.path.abspath(__file__).split("src")[0]
 log.debug(f"Root Directory: {ROOT_DIR}")
 
-ret = dotenv.load_dotenv()  # load .env file to be imported
-log.debug(f"At least one env-var in .env: {ret}")
+dotenv_exists = dotenv.load_dotenv()
+log.debug(f".env file exists: {dotenv_exists}")
+
 stream = open(f"{ROOT_DIR}config.yml", "r", encoding="utf-8")
-config_dict = yaml.safe_load(stream)
+config = yaml.safe_load(stream)
 
 
-def config(key):
-    # load the config file as unicode strings
-    return config_dict[key]
+def config_entry(key):
+    """load an entry from the config"""
+    return config[key]

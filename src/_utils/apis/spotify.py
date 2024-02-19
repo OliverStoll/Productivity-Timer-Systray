@@ -84,4 +84,4 @@ if __name__ == "__main__":
     # spotify = SpotifyHandler(device_name="PC", )
     # spotify.play_track(name=None)
     # spotify.toggle_playback()
-    # spotify.play_playlist(playlist_uri=config_dict["pause_playlist"])
+    # spotify.play_playlist(playlist_uri=config["pause_playlist"])

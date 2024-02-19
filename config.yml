@@ -24,6 +24,8 @@ states:
 FIREBASE_TIME_DONE_REF: 'Arbeitszeit'
 
 
+# Ticktick
+HABIT_NAME: 'Arbeiten'
 
 
 #####   USER SETTINGS   #####
