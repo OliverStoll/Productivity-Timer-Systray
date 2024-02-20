@@ -20,7 +20,7 @@ if os.getenv("IS_CLOUD", False):
 class FixedWidthFormatter(logging.Formatter):
     def format(self, record):
         record.levelname = f"{record.levelname[:7]:<7}"
-        record.name = f"{record.name[:20]:<20}"
+        record.name = f"{record.name[:16]:<16}"
         return super().format(record)
 
 

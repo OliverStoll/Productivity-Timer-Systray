@@ -47,7 +47,7 @@ class FirebaseHandler:
         response = requests.patch(
             url=f"{self.database_url}/{ref}.json", headers=self.headers, data=data
         )
-        self.log.debug(f"Updating Value of {ref} - [{key}: {response.text}]")
+        self.log.debug(f"Updating Value of {ref}: {response.text}")
 
     def delete_entry(self, ref: str):
         """Delete an object entry from firebase"""

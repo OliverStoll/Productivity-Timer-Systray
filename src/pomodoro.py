@@ -224,7 +224,7 @@ class PomodoroApp:
         self.update_display()
         play_sound(config["sounds"]["start"], volume=self.settings["VOLUME"])
         if self.spotify_handler and self.settings["Spotify"]:
-            self.spotify_handler.play_playlist_thread(playlist_uri=config["work_playlist"])
+            self.spotify_handler.play_playlist(playlist_uri=config["work_playlist"])
         if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         self.timer_thread = Thread(target=self.run_timer)
@@ -239,7 +239,7 @@ class PomodoroApp:
         self.stop_timer_thread_flag = True
         # features
         if self.spotify_handler and self.settings["Spotify"]:
-            self.spotify_handler.play_playlist_thread(playlist_uri=config["pause_playlist"])
+            self.spotify_handler.play_playlist(playlist_uri=config["pause_playlist"])
         if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         self.update_display()
@@ -258,7 +258,7 @@ class PomodoroApp:
                 self.window_handler.minimize_open_windows()
             if self.spotify_handler and self.settings["Spotify"]:
                 sleep(1)
-                self.spotify_handler.play_playlist_thread(playlist_uri=config["pause_playlist"])
+                self.spotify_handler.play_playlist(playlist_uri=config["pause_playlist"])
         elif self.state == State.PAUSE and self.time_worked < self.daily_work_goal:
             self.log.info("Switching PAUSE -> WORK state")
             self.state = State.READY
