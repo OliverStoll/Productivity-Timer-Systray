@@ -14,7 +14,7 @@ class FirebaseHandler:
         self.headers = {"Content-Type": "application/x-www-form-urlencoded"}
         self.database_url = realtime_db_url
         if not self.database_url:
-            self.log.warn(
+            self.log.error(
                 "Could not load firebase project from environment variables. "
                 "It will ignore all future interaction"
             )
@@ -22,7 +22,7 @@ class FirebaseHandler:
     def _check_inactive(self) -> bool:
         """Check if we (this Firebase Handler) is active"""
         if not self.database_url:
-            self.log.debug("Firebase client is not active. Ignoring request")
+            self.log.warn("Firebase client is not active. Ignoring request")
         return not self.database_url
 
     def get_list(self, ref: str, max_results: int = 100, convert_to_list: bool = True):
@@ -32,6 +32,7 @@ class FirebaseHandler:
         params = {"orderBy": '"$key"', "limitToFirst": str(max_results)}
         reference_url = f"{self.database_url}/{ref}.json"
         response = requests.get(url=reference_url, params=params)
+        self.log.debug(f"Getting List: {response.text}")
         if convert_to_list:
             list_json = response.json()
             return [list_json[key] for key in list_json]
@@ -46,18 +47,20 @@ class FirebaseHandler:
         response = requests.patch(
             url=f"{self.database_url}/{ref}.json", headers=self.headers, data=data
         )
-        self.log.debug(f"Updating Value: {response.text}")
+        self.log.debug(f"Updating Value of {ref} - [{key}: {response.text}]")
 
     def delete_entry(self, ref: str):
         """Delete an object entry from firebase"""
         if self._check_inactive():
             return
         requests.delete(url=f"{self.database_url}/{ref}.json")
+        self.log.debug(f"Deleted entry {ref} from firebase")
 
     def get_entry(self, ref: str):
         """Get an object entry from firebase"""
         if self._check_inactive():
             return
+        self.log.debug(f"Getting entry {ref} from firebase")
         return requests.get(url=f"{self.database_url}/{ref}.json").json()
 
     def set_entry(self, ref: str, data: dict):
@@ -67,7 +70,7 @@ class FirebaseHandler:
         response = requests.put(
             url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
         )
-        self.log.info(f"Set entry {ref} with data {data} in firebase. Response: {response.text}")
+        self.log.debug(f"Set entry {ref} with data {data} in firebase. Response: {response.text}")
 
     def set_entry_df(self, ref: str, df: DataFrame):
         """Set a dataframe entry in firebase, by first converting it to a dictionary"""
@@ -77,13 +80,14 @@ class FirebaseHandler:
         response = requests.put(
             url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
         )
-        self.log.info(f"Set df entry {ref} in firebase. Response: {response.text}")
+        self.log.debug(f"Set df entry {ref} in firebase. Response: {response.text}")
 
     def get_entry_df(self, ref: str) -> DataFrame | None:
         """Get a dataframe entry from firebase, by converting it from a dictionary"""
         if self._check_inactive():
             return None
         data = requests.get(url=f"{self.database_url}/{ref}.json").json()
+        self.log.debug(f"Got df entry {ref} from firebase")
         return DataFrame.from_dict(data, orient="index")
 
 

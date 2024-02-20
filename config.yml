@@ -1,5 +1,4 @@
 #####   INTERNAL SETTINGS   #####
-app_name: 'Pomodoro'
 sounds:
   start: 'res/start-sound.mp3'
   pause: 'res/pause-sound.mp3'

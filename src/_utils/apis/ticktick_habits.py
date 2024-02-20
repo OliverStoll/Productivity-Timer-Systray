@@ -12,7 +12,7 @@ class TicktickHabitApi:
     """Class that accesses the TickTick habits API. Used to post habit checkins."""
 
     def __init__(self, cookies: str | None = None, cookies_path: str | None = None):
-        self.log = create_logger("Ticktick_Habits")
+        self.log = create_logger("Ticktick Habits")
         self.cookies_path = cookies_path
         self.cookies = self._get_cookies() if not cookies else cookies
         # self._save_cookies()
@@ -49,7 +49,7 @@ class TicktickHabitApi:
                 with open(self.cookies_path, "r") as file:
                     cookies = file.read().strip()
                     if cookies:
-                        self.log.debug("Loaded cookies from file")
+                        self.log.debug(f"Loaded cookies from file: {self.cookies_path}")
                         return cookies
             except Exception as e:
                 self.log.error(f"Error loading cookies from file: {e}")
@@ -58,17 +58,17 @@ class TicktickHabitApi:
             self.log.debug("Loaded cookies from environment variables")
             return secret("TICKTICK_COOKIES")
         self.log.debug("No cookies found, trying to load cookies via Login (Selenium)")
+        return self._get_cookies_selenium()
+
+    def _get_cookies_selenium(self):
         url = "https://www.ticktick.com/signin"
         username = secret("TICKTICK_USERNAME")
         password = secret("TICKTICK_PASSWORD")
         username_selector = "#emailOrPhone"
         password_selector = "#password"
         login_button_selector = "section:nth-child(1) > button"
-        assert (
-            username and password
-        ), "TICKTICK_USERNAME or TICKTICK_PASSWORD not found in environment variables."
+        assert username and password, "TICKTICK_USERNAME or _PASSWORD not found in env variables."
 
-        # use webdriver headless
         options = webdriver.ChromeOptions()
         # options.add_argument("--headless")
         driver = webdriver.Chrome(options=options)
@@ -81,7 +81,7 @@ class TicktickHabitApi:
         driver.quit()
         assert len(cookies_dict) == 5, "Not exactly 5 cookies found. Something went wrong."
         self.log.info(f"Loaded cookies via Selenium: {cookies_dict}")
-        cookies = "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies])
+        cookies = "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies_dict])
         return cookies
 
     def _save_cookies(self):
@@ -107,24 +107,32 @@ class TicktickHabitApi:
                 return entry
         return None
 
-    def checkin_simple(self, habit_name: str, date_stamp: str, status: int):
+    def checkin_simple(
+        self, habit_name: str, date_stamp: str, status: int | None = None, value: int | None = None
+    ):
         """Post a simple habit checkin to the TickTick API.
 
         Args:
             habit_name: Name of the habit to check-in
             date_stamp: Date of the check-in, in the format YYYYMMDD
             status: Status of the check-in. 0: Not completed, 1: Failed, 2: Completed
+            value: The value amount to check in. for habits who require multiple units
         """
-        assert status in [0, 1, 2], "Status must be 0, 1 or 2"
+        assert not status and value, "You can only provide status or value, not both"
         assert habit_name in self.habit_ids, f"Habit {habit_name} not found in habits"
-        self.log.info(
-            f"Checking in habit {habit_name} on {date_stamp} with status {self.status_codes[status]}"
-        )
+
         url = "https://api.ticktick.com/api/v2/habitCheckins/batch"
         current_utc_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S") + ".000+0000"
         habit_id = self.habit_ids[habit_name]
         habit_goal = int(self.habits[habit_id]["goal"])
-        value = habit_goal if status == 2 else 0
+        if status is not None:
+            value = habit_goal if status == 2 else 0
+        elif value is not None:
+            status = 2 if value >= habit_goal else 0
+        else:
+            raise ValueError("You need to provide either status or value")
+
+        self.log.info(f"Checking {habit_name} on {date_stamp} as {status}: {value}/{habit_goal}")
 
         checkin_data = {
             "checkinStamp": date_stamp,
