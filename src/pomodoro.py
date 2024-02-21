@@ -331,6 +331,7 @@ class PomodoroApp:
 
 
 if __name__ == "__main__":
+    assert os.getenv("APPDATA", False), "APPDATA env-var not set, probably not running on windows"
     os.environ["APPDATA_DIR"] = "Pomo"
     _firebase_db_url = secret("FIREBASE_DB_URL")
     _spotify_info = {

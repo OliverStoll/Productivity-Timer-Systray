@@ -25,6 +25,7 @@ pandas = "^2.2.0"
 psutil = "^5.9.8"
 pywinauto = "^0.6.8"
 selenium = "^4.17.2"
+pywin32 = "^306"
 
 
 [tool.poetry.group.cloud]
