@@ -15,7 +15,7 @@ class TicktickHabitApi:
         self.log = create_logger("Ticktick Habits")
         self.cookies_path = cookies_path
         self.cookies = self._get_cookies() if not cookies else cookies
-        # self._save_cookies()
+        self._save_cookies_to_path()
         self.headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Encoding": "gzip, deflate, br",
@@ -52,13 +52,13 @@ class TicktickHabitApi:
                         self.log.debug(f"Loaded cookies from file: {self.cookies_path}")
                         return cookies
             except Exception as e:
-                self.log.error(f"Error loading cookies from file: {e}")
-                raise e
+                self.log.warn(f"Error loading cookies from file: {e}")
         if secret("TICKTICK_COOKIES"):
             self.log.debug("Loaded cookies from environment variables")
             return secret("TICKTICK_COOKIES")
         self.log.debug("No cookies found, trying to load cookies via Login (Selenium)")
-        return self._get_cookies_selenium()
+        cookies = self._get_cookies_selenium()
+        return cookies
 
     def _get_cookies_selenium(self):
         url = "https://www.ticktick.com/signin"
@@ -84,10 +84,11 @@ class TicktickHabitApi:
         cookies = "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies_dict])
         return cookies
 
-    def _save_cookies(self):
-        with open(self.cookies_path, "w") as file:
-            file.write(self.cookies)
-        self.log.debug("Saved cookies to file")
+    def _save_cookies_to_path(self):
+        if self.cookies_path:
+            with open(self.cookies_path, "w") as file:
+                file.write(self.cookies)
+            self.log.debug("Saved cookies to file")
 
     def _get_habits_data(self):
         url = "https://api.ticktick.com/api/v2/habits"

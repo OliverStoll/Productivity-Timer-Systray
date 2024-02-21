@@ -25,7 +25,7 @@ class FixedWidthFormatter(logging.Formatter):
 
 
 def create_logger(name: str):
-    """Creates a logger using a preset format str. Logs to file if APPDATA_DIR is set"""
+    """Creates a logger using a preset format str. Logs to "All"- and {name}.log if APPDATA_DIR"""
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     log_formatter = FixedWidthFormatter(format_str, datefmt=date_format)

@@ -1,14 +1,49 @@
+import os
+import json
 import threading
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy import Spotify as SpotifyAPI
+from spotipy import CacheHandler
 
 from src._utils.logger import create_logger
+from src._utils.common import secret, config
+
+
+class CustomCacheHandler(CacheHandler):
+    def __init__(self, cache_path: str, logger):
+        self.cache_path = cache_path
+        self.log = logger
+        self.log.debug(f"Using cache path: {self.cache_path}")
+
+    def get_cached_token(self):
+        try:
+            with open(self.cache_path, "r") as file:
+                token_info = json.load(file)
+                self.log.debug(f"Loaded token from cache: [{token_info}]")
+                if not token_info:
+                    raise FileNotFoundError("Token is empty")
+                return token_info
+        except Exception as e:
+            self.log.warn(f"No token found in cache: {e}")
+            return None
+
+    def save_token_to_cache(self, token_info):
+        os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
+        with open(self.cache_path, "w") as file:
+            json.dump(token_info, file)
+        self.log.debug(f"Saved token to cache: {token_info}")
 
 
 # Set up Spotify client
 class SpotifyHandler:
     def __init__(
-        self, device_name: str, client_id: str, client_secret: str, redirect_uri: str, scope: str
+        self,
+        device_name: str,
+        client_id: str,
+        client_secret: str,
+        redirect_uri: str,
+        scope: str,
+        cache_path: str,
     ):
         """Spotify client to interact with the Spotify API. CURRENTLY ONLY SUPPORTS play_playlist
 
@@ -22,6 +57,7 @@ class SpotifyHandler:
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
         self.scope = scope
+        self.cache_handler = CustomCacheHandler(cache_path=cache_path, logger=self.log)
         self.device_ids = self._get_device_ids()
         assert device_name in self.device_ids.keys(), f"Device '{device_name}' not found"
 
@@ -29,7 +65,11 @@ class SpotifyHandler:
         """Initialise the Spotify API"""
         if not self.api:
             auth = SpotifyOAuth(
-                self.client_id, self.client_secret, self.redirect_uri, scope=self.scope
+                self.client_id,
+                self.client_secret,
+                self.redirect_uri,
+                scope=self.scope,
+                cache_handler=self.cache_handler,
             )
             self.api = SpotifyAPI(auth_manager=auth)
 
@@ -110,8 +150,12 @@ class SpotifyHandler:
 
 
 if __name__ == "__main__":
-    pass
-    # spotify = SpotifyHandler(device_name="PC", )
-    # spotify.play_track(name=None)
-    # spotify.toggle_playback()
-    # spotify.play_playlist(playlist_uri=config["pause_playlist"])
+    _spotify_info = {
+        "device_name": secret("SPOTIFY_DEVICE_NAME"),
+        "client_id": secret("SPOTIFY_CLIENT_ID"),
+        "client_secret": secret("SPOTIFY_CLIENT_SECRET"),
+        "redirect_uri": config["SPOTIFY"]["redirect_uri"],
+        "scope": config["SPOTIFY"]["scope"],
+        "cache_path": f"{os.getenv('APPDATA')}/Pomo/.spotify_cache",
+    }
+    spotify = SpotifyHandler(**_spotify_info)

@@ -14,7 +14,7 @@ from pprint import pformat
 # local
 from src.systray.utils import draw_icon_text, draw_icon_circle, trigger_webhook
 from src._utils.common import config
-from src._utils.common import secret, ROOT_DIR
+from src._utils.common import secret
 from src._utils.logger import create_logger
 from src._utils.apis.spotify import SpotifyHandler
 from src._utils.apis.firebase import FirebaseHandler
@@ -48,7 +48,8 @@ class PomodoroApp:
         self.firebase_time_done_ref = config["FIREBASE_TIME_DONE_REF"]
         self._load_settings_from_firebase()
         # handlers
-        self.habit_handler = TicktickHabitApi(cookies_path=f"{ROOT_DIR}/.ticktick_cookies")
+        ticktick_cookie_path = f"{os.getenv('APPDATA')}/Pomo/.ticktick_cookies"
+        self.habit_handler = TicktickHabitApi(cookies_path=ticktick_cookie_path)
         self.window_handler = WindowHandler()
         self.spotify_handler = self._init_spotify(spotify_info)
         # todo: add homeassistant handler
@@ -67,7 +68,7 @@ class PomodoroApp:
         self.log.info("Pomodoro Timer initialised.")
 
     def _start_app_with_stub_data(self):
-        self.log.debug("Initialising and starting app with stub data")
+        self.log.debug("Starting app with stub data")
         self.settings = config["default_settings"]
         self.state = State.STARTING
         self.systray_app = pystray.Icon(self.name)
@@ -81,7 +82,7 @@ class PomodoroApp:
         try:
             self.settings = self.firebase.get_entry(ref=self.setting_ref)
             assert isinstance(self.settings, dict)
-            self.log.info(f"Loaded settings from firebase: \n{pformat(self.settings)}")
+            self.log.info("Loaded settings from firebase")
         except Exception as e:
             self.log.warning(
                 f"Can't load settings from firebase: [{e}], "
@@ -319,7 +320,6 @@ class PomodoroApp:
                     self.stop_timer_thread_flag = False
                     return
             self.current_timer_value -= 1
-            self.log.debug(f"One minute passed. New timer value: {self.current_timer_value}")
             if self.state == State.WORK:
                 self._increase_time_worked()
             if self.time_worked % 60 == 0:
@@ -339,5 +339,6 @@ if __name__ == "__main__":
         "client_secret": secret("SPOTIFY_CLIENT_SECRET"),
         "redirect_uri": config["SPOTIFY"]["redirect_uri"],
         "scope": config["SPOTIFY"]["scope"],
+        "cache_path": f"{os.getenv('APPDATA')}/Pomo/.spotify_cache",
     }
     pomo_app = PomodoroApp(firebase_rdb_url=_firebase_db_url, spotify_info=_spotify_info)

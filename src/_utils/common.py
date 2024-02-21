@@ -12,7 +12,7 @@ ROOT_DIR = os.path.abspath(__file__).split("src")[0]
 log.debug(f"Root Directory: {ROOT_DIR}")
 
 dotenv_exists = dotenv.load_dotenv()
-log.debug(f".env file exists: {dotenv_exists}")
+log.debug(f".env file {'exists' if dotenv_exists else 'DOES NOT exist'}")
 
 stream = open(f"{ROOT_DIR}config.yml", "r", encoding="utf-8")
 config = yaml.safe_load(stream)
