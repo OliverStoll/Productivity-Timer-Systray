@@ -31,64 +31,89 @@ class FirebaseHandler:
             return
         params = {"orderBy": '"$key"', "limitToFirst": str(max_results)}
         reference_url = f"{self.database_url}/{ref}.json"
-        response = requests.get(url=reference_url, params=params)
-        self.log.debug(f"Getting List: {response.text}")
-        if convert_to_list:
-            list_json = response.json()
-            return [list_json[key] for key in list_json]
-        else:
-            return response.json()
+        try:
+            response = requests.get(url=reference_url, params=params)
+            self.log.debug(f"Getting List: {response.text}")
+            if convert_to_list:
+                list_json = response.json()
+                return [list_json[key] for key in list_json]
+            else:
+                return response.json()
+        except Exception as e:
+            self.log.error(f"Failed to get list from {ref}: {e}")
+            return None
 
     def update_value(self, ref: str, key: str, value):
         """Update a value of a object entry in firebase"""
         if self._check_inactive():
             return
         data = json.dumps({key: value})
-        response = requests.patch(
-            url=f"{self.database_url}/{ref}.json", headers=self.headers, data=data
-        )
-        self.log.debug(f"Updating Value of {ref}: {response.text}")
+        try:
+            response = requests.patch(
+                url=f"{self.database_url}/{ref}.json", headers=self.headers, data=data
+            )
+            self.log.debug(f"Updating Value of {ref}: {response.text}")
+        except Exception as e:
+            self.log.error(f"Failed to update value of {ref}: {e}")
 
     def delete_entry(self, ref: str):
         """Delete an object entry from firebase"""
         if self._check_inactive():
             return
-        requests.delete(url=f"{self.database_url}/{ref}.json")
-        self.log.debug(f"Deleted entry {ref} from firebase")
+        try:
+            requests.delete(url=f"{self.database_url}/{ref}.json")
+            self.log.debug(f"Deleted entry {ref} from firebase")
+        except Exception as e:
+            self.log.error(f"Failed to delete entry {ref}: {e}")
 
     def get_entry(self, ref: str):
         """Get an object entry from firebase"""
         if self._check_inactive():
             return
-        self.log.debug(f"Getting entry {ref} from firebase")
-        return requests.get(url=f"{self.database_url}/{ref}.json").json()
+        try:
+            response = requests.get(url=f"{self.database_url}/{ref}.json").json()
+            self.log.debug(f"Got entry {ref} from firebase: {response}")
+            return response
+        except Exception as e:
+            self.log.error(f"Failed to get entry {ref}: {e}")
+            return None
 
     def set_entry(self, ref: str, data: dict):
         """Set an object entry in firebase"""
         if self._check_inactive():
             return
-        response = requests.put(
-            url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
-        )
-        self.log.debug(f"Set entry {ref} with data {data} in firebase. Response: {response.text}")
+        try:
+            response = requests.put(
+                url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
+            )
+            self.log.debug(f"Set entry {ref} with data {data} in firebase: {response.text}")
+        except Exception as e:
+            self.log.error(f"Failed to set entry {ref}: {e}")
 
     def set_entry_df(self, ref: str, df: DataFrame):
         """Set a dataframe entry in firebase, by first converting it to a dictionary"""
         if self._check_inactive():
             return
         data = df.to_dict(orient="index")
-        response = requests.put(
-            url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
-        )
-        self.log.debug(f"Set df entry {ref} in firebase. Response: {response.text}")
+        try:
+            response = requests.put(
+                url=f"{self.database_url}/{ref}.json", headers=self.headers, data=json.dumps(data)
+            )
+            self.log.debug(f"Set df entry {ref} in firebase. Response: {response.text}")
+        except Exception as e:
+            self.log.error(f"Failed to set df entry {ref}: {e}")
 
     def get_entry_df(self, ref: str) -> DataFrame | None:
         """Get a dataframe entry from firebase, by converting it from a dictionary"""
         if self._check_inactive():
             return None
-        data = requests.get(url=f"{self.database_url}/{ref}.json").json()
-        self.log.debug(f"Got df entry {ref} from firebase")
-        return DataFrame.from_dict(data, orient="index")
+        try:
+            data = requests.get(url=f"{self.database_url}/{ref}.json").json()
+            self.log.debug(f"Got df entry {ref} from firebase")
+            return DataFrame.from_dict(data, orient="index")
+        except Exception as e:
+            self.log.error(f"Failed to get df entry {ref}: {e}")
+            return None
 
 
 if __name__ == "__main__":
