@@ -19,7 +19,7 @@ class CustomCacheHandler(CacheHandler):
         try:
             with open(self.cache_path, "r") as file:
                 token_info = json.load(file)
-                self.log.debug(f"Loaded token from cache: [{token_info}]")
+                self.log.debug(f"Loaded token from cache: {str(token_info)[0:30]}")
                 if not token_info:
                     raise FileNotFoundError("Token is empty")
                 return token_info
@@ -31,7 +31,7 @@ class CustomCacheHandler(CacheHandler):
         os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
         with open(self.cache_path, "w") as file:
             json.dump(token_info, file)
-        self.log.debug(f"Saved token to cache: {token_info}")
+        self.log.debug(f"Saved token to cache: {str(token_info)[0:30]}")
 
 
 # Set up Spotify client
