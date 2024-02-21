@@ -37,10 +37,15 @@ def create_logger(name: str):
     if os.getenv("APPDATA", False) and os.getenv("APPDATA_DIR", False):
         log_folder = f"{os.getenv('APPDATA')}/{os.getenv('APPDATA_DIR')}/logs"
         os.makedirs(log_folder, exist_ok=True)
-        log_file = f"{log_folder}/All.log"
-        file_handler = RotatingFileHandler(log_file, maxBytes=50 * 1024 * 1024, backupCount=5)
-        file_handler.setFormatter(log_formatter)
-        file_handler.setLevel(logging.DEBUG)
-        logger.addHandler(file_handler)
+        log_file_all = f"{log_folder}/All.log"
+        log_file = f"{log_folder}/{name}.log"
+        file_handler_a = RotatingFileHandler(log_file_all, maxBytes=50 * 1024 * 1024, backupCount=5)
+        file_handler_name = RotatingFileHandler(log_file, maxBytes=50 * 1024 * 1024, backupCount=5)
+        file_handler_a.setFormatter(log_formatter)
+        file_handler_a.setLevel(logging.DEBUG)
+        file_handler_name.setFormatter(log_formatter)
+        file_handler_name.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler_a)
+        logger.addHandler(file_handler_name)
 
     return logger
