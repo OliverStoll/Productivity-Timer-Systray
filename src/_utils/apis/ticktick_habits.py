@@ -1,6 +1,10 @@
 import requests
 import json
 import datetime
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from time import sleep
 from selenium import webdriver
 from src._utils.common import secret
@@ -8,14 +12,12 @@ from src._utils.logger import create_logger
 from selenium.webdriver.common.by import By
 
 
-class TicktickHabitApi:
+class TicktickHabitHandler:
     """Class that accesses the TickTick habits API. Used to post habit checkins."""
 
-    def __init__(self, cookies: str | None = None, cookies_path: str | None = None):
+    def __init__(self, cookies_path: str | None = None):
         self.log = create_logger("Ticktick Habits")
         self.cookies_path = cookies_path
-        self.cookies = self._get_cookies() if not cookies else cookies
-        self._save_cookies_to_path()
         self.headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Encoding": "gzip, deflate, br",
@@ -34,10 +36,14 @@ class TicktickHabitApi:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
             "X-Device": '{"platform":"web","os":"Windows 10","device":"Chrome 121.0.0.0","name":"","version":5070,"id":"64f085936fc6ff0ae4a815dc","channel":"website","campaign":"","websocket":"65d2d554073cb37cda076c69"}',
             "X-Tz": "Europe/Berlin",
-            "Cookie": self.cookies,
         }
-
-        self.habits = self._get_habits_data()
+        self.cookies = self._get_cookies()
+        self.headers["Cookie"] = self.cookies
+        self.habits = self._get_habits_metadata()
+        # check if the cookies are valid
+        if "errorId" in self.habits:
+            self.log.error(f"Error loading habits: {self.habits}")
+            raise ValueError(f"Error loading habits {self.habits}")
         self.habit_ids = {habit["name"]: habit["id"] for habit in self.habits}
         self.habits = {habit["id"]: habit for habit in self.habits}
         self.status_codes = {0: "Not completed", 1: "Failed", 2: "Completed"}
@@ -45,22 +51,26 @@ class TicktickHabitApi:
     def _get_cookies(self):
         """Opens the browser and opens the ticktick website to get the cookies."""
         if self.cookies_path:
-            try:
-                with open(self.cookies_path, "r") as file:
-                    cookies = file.read().strip()
-                    if cookies:
-                        self.log.debug(f"Loaded cookies from file: {self.cookies_path}")
-                        return cookies
-            except Exception as e:
-                self.log.warn(f"Error loading cookies from file: {e}")
-        if secret("TICKTICK_COOKIES"):
-            self.log.debug("Loaded cookies from environment variables")
-            return secret("TICKTICK_COOKIES")
-        self.log.debug("No cookies found, trying to load cookies via Login (Selenium)")
-        cookies = self._get_cookies_selenium()
+            cookies = self._get_cookies_from_file()
+            if cookies and self._test_cookies(cookies):
+                self.log.debug(f"Loaded cookies from file: {self.cookies_path}")
+                return cookies
+        self.log.debug("No cookies from file, trying to load cookies via Login (Selenium)")
+        cookies = self._get_cookies_from_browser()
+        self.log.info(f"Loaded cookies via Selenium: {cookies}")
+        self._save_cookies_to_path()
         return cookies
 
-    def _get_cookies_selenium(self):
+    def _get_cookies_from_file(self):
+        try:
+            with open(self.cookies_path, "r") as file:
+                cookies = file.read().strip()
+                return cookies
+        except Exception as e:
+            self.log.error(f"Error loading cookies from file: {e}")
+        return None
+
+    def _get_cookies_from_browser(self):
         url = "https://www.ticktick.com/signin"
         username = secret("TICKTICK_USERNAME")
         password = secret("TICKTICK_PASSWORD")
@@ -80,24 +90,35 @@ class TicktickHabitApi:
         cookies_dict = driver.get_cookies()
         driver.quit()
         assert len(cookies_dict) == 5, "Not exactly 5 cookies found. Something went wrong."
-        self.log.info(f"Loaded cookies via Selenium: {cookies_dict}")
         cookies = "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies_dict])
         return cookies
 
-    def _save_cookies_to_path(self):
+    def _save_cookies_to_path(self, cookies: str):
         if self.cookies_path:
             with open(self.cookies_path, "w") as file:
-                file.write(self.cookies)
+                file.write(cookies)
             self.log.debug("Saved cookies to file")
 
-    def _get_habits_data(self):
+    def _test_cookies(self, cookies: str):
+        """Return True if the cookies are valid, False if not."""
+        url = "https://api.ticktick.com/api/v2/habits"
+        headers = self.headers
+        headers["Cookie"] = cookies
+        data = requests.get(url, headers=headers).json()
+        if "errorCode" in data and data["errorCode"] == "user_not_sign_on":
+            self.log.warning("Cookies are invalid")
+            return False
+        else:
+            self.log.debug("Cookies are valid")
+            return True
+
+    def _get_habits_metadata(self):
         url = "https://api.ticktick.com/api/v2/habits"
         response = requests.get(url, headers=self.headers)
         return response.json()
 
-    def query_checkin(self, habit_id, date_stamp):
+    def query_single_checkin(self, habit_id, date_stamp):
         url = "https://api.ticktick.com/api/v2/habitCheckins/query"
-        # from the date stamp of format 20240204, we need to get the date before and after
         date = datetime.datetime.strptime(date_stamp, "%Y%m%d")
         after_stamp = (date - datetime.timedelta(days=1)).strftime("%Y%m%d")
         payload = {"habitIds": [habit_id], "afterStamp": after_stamp}
@@ -108,7 +129,7 @@ class TicktickHabitApi:
                 return entry
         return None
 
-    def checkin_simple(
+    def post_checkin(
         self, habit_name: str, date_stamp: str, status: int | None = None, value: int | None = None
     ):
         """Post a simple habit checkin to the TickTick API.
@@ -145,7 +166,7 @@ class TicktickHabitApi:
             "value": value,
         }
 
-        existing_checkin_entry = self.query_checkin(habit_id, date_stamp)
+        existing_checkin_entry = self.query_single_checkin(habit_id, date_stamp)
         if not existing_checkin_entry:
             payload = {"add": [checkin_data], "update": [], "delete": []}
         else:
@@ -158,9 +179,55 @@ class TicktickHabitApi:
         except Exception as e:
             self.log.error(f"Error posting habit checking: {e}")
 
+    def get_all_habit_data(self, after_stamp: str):
+        habit_ids = list(self.habit_ids.values())
+        url = "https://api.ticktick.com/api/v2/habitCheckins/query"
+        payload = {"habitIds": habit_ids, "afterStamp": after_stamp}
+        response = requests.post(url, data=json.dumps(payload), headers=self.headers).json()
+        habit_entries = response["checkins"]
+        # from the dict of habits containing lists of entries, add the habit name to each entry and then flatten the list
+        habit_entries_list = [
+            {**entry, "habitName": self.habits[habit_id]["name"]}
+            for habit_id, entries in habit_entries.items()
+            for entry in entries
+        ]
+        habit_entries_df = pd.DataFrame(habit_entries_list)
+        habit_entries_df["checkinStamp"] = pd.to_datetime(
+            habit_entries_df["checkinStamp"], format="%Y%m%d"
+        )
+        return habit_entries_df
+
 
 if __name__ == "__main__":
-    api = TicktickHabitApi(cookies_path="../.ticktick_cookies")
-    api.checkin_simple(
-        habit_name="Arbeiten", date_stamp=datetime.datetime.now().strftime("%Y%m%d"), status=2
-    )
+    api = TicktickHabitHandler(cookies_path="../.ticktick_cookies")
+    df = api.get_all_habit_data("20220101")
+    df = df[df["habitName"] == "Sport"]
+
+    # Filter the DataFrame for the last 30 days
+    end_date = pd.Timestamp.now()
+    start_date = end_date - pd.Timedelta(days=30)
+    df_filtered = df[(df["checkinStamp"] >= start_date) & (df["checkinStamp"] <= end_date)]
+
+    # Create a pivot table for the heatmap with only one column for 'status'
+    pivot_table = df_filtered.pivot_table(
+        index=pd.Grouper(key="checkinStamp", freq="D"),
+        values="status",
+        aggfunc="first",
+        dropna=False,
+    ).fillna(0)
+
+    # Plot the heatmap
+    plt.figure(figsize=(3, 10))  # Adjusted the figure size for a single-column heatmap
+    sns.heatmap(pivot_table, annot=False, cbar=False, cmap="Blues", fmt="d", yticklabels=True)
+    plt.title("Habit Status for the Last 30 Days")
+    plt.xlabel("Status")
+    plt.ylabel("Date")
+
+    # Format the y-axis to show only dates
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    ax.yaxis.set_major_locator(mdates.DayLocator())
+
+    plt.xticks([])
+    plt.yticks(rotation=0)
+    plt.show()

@@ -26,6 +26,8 @@ psutil = "^5.9.8"
 pywinauto = "^0.6.8"
 selenium = "^4.17.2"
 pywin32 = "^306"
+seaborn = "^0.13.2"
+matplotlib = "^3.8.3"
 
 
 [tool.poetry.group.cloud]

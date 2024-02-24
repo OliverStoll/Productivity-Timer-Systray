@@ -18,6 +18,11 @@ stream = open(f"{ROOT_DIR}config.yml", "r", encoding="utf-8")
 config = yaml.safe_load(stream)
 
 
-def config_entry(key):
+def config_entry(key: str):
     """load an entry from the config"""
     return config[key]
+
+
+def load_env_file(path: str):
+    """Load the environment variables from the .env file"""
+    dotenv.load_dotenv(dotenv_path=path)

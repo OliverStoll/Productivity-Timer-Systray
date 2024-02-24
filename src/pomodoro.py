@@ -13,14 +13,13 @@ from pprint import pformat
 
 # local
 from src.systray.utils import draw_icon_text, draw_icon_circle, trigger_webhook
-from src._utils.common import config
-from src._utils.common import secret
+from src._utils.common import config, secret, load_env_file
 from src._utils.logger import create_logger
 from src._utils.apis.spotify import SpotifyHandler
 from src._utils.apis.firebase import FirebaseHandler
 from src._utils.system.sound import play_sound
 from src._utils.system.programs_windows import WindowHandler
-from src._utils.apis.ticktick_habits import TicktickHabitApi
+from src._utils.apis.ticktick_habits import TicktickHabitHandler
 
 
 class State:
@@ -40,18 +39,22 @@ class PomodoroApp:
         self.name = "Pomodoro Timer"
         self.log = create_logger(self.name)
         self.log.info("\n\n\n\n\t\tSTARTING POMODORO TIMER...\n\n\n")
-        self._update_icon_thread_lock = threading.Lock()
+        self._thread_lock = threading.Lock()
         self._start_app_with_stub_data()
         # try to load real settings from firebase
         self.firebase = FirebaseHandler(realtime_db_url=firebase_rdb_url)
-        self.setting_ref = config["settings_reference"]
         self.firebase_time_done_ref = config["FIREBASE_TIME_DONE_REF"]
-        self._load_settings_from_firebase()
+        self.settings_firebase_ref = config["settings_reference"]
+        self.settings = self._load_settings_from_firebase()
+        self.appdata_path = f"{os.getenv('APPDATA')}/{os.getenv('APPDATA_DIR')}"
+        if os.path.exists(f"{self.appdata_path}/.env"):
+            self.log.info(f"Loading .env file from {self.appdata_path}")
+            load_env_file(f"{self.appdata_path}/.env")
+
         # handlers
-        ticktick_cookie_path = f"{os.getenv('APPDATA')}/Pomo/.ticktick_cookies"
-        self.habit_handler = TicktickHabitApi(cookies_path=ticktick_cookie_path)
+        self.habit_handler = self._init_habit_handler()
         self.window_handler = WindowHandler()
-        self.spotify_handler = self._init_spotify(spotify_info)
+        self.spotify_handler = self._init_spotify_handler(spotify_info)
         # todo: add homeassistant handler
         # load timer values
         self.state = State.READY
@@ -80,19 +83,21 @@ class PomodoroApp:
 
     def _load_settings_from_firebase(self):
         try:
-            self.settings = self.firebase.get_entry(ref=self.setting_ref)
-            assert isinstance(self.settings, dict)
+            settings = self.firebase.get_entry(ref=self.settings_firebase_ref)
+            assert isinstance(settings, dict)
             self.log.info("Loaded settings from firebase")
+            return settings
         except Exception as e:
             self.log.warning(
                 f"Can't load settings from firebase: [{e}], "
                 f"using default settings {pformat(config['default_settings'])}."
             )
-            self.settings = config["default_settings"]
+            settings = config["default_settings"]
             try:
-                self.firebase.set_entry(ref=self.setting_ref, data=self.settings)
+                self.firebase.set_entry(ref=self.settings_firebase_ref, data=settings)
             except Exception as e:
                 self.log.warn(f"Could not save default settings to Firebase: {e}")
+            return settings
 
     def _load_time_worked_from_firebase(self):
         time_worked_ref = f"{self.firebase_time_done_ref}/{self.time_worked_date}/time_worked"
@@ -107,12 +112,20 @@ class PomodoroApp:
             time_worked = 0
         return time_worked
 
-    def _init_spotify(self, spotify_info):
+    def _init_spotify_handler(self, spotify_info):
         try:
             return SpotifyHandler(**spotify_info)
         except Exception as e:
             self.log.warning(f"Can't connect to Spotify [{e}]")
             self.settings["Spotify"] = False
+            return None
+
+    def _init_habit_handler(self):
+        return TicktickHabitHandler(f"{self.appdata_path}/.ticktick_cookies")
+        try:
+            pass
+        except Exception as e:
+            self.log.warning(f"Can't connect to Ticktick: {e}")
             return None
 
     def update_menu(self):
@@ -173,7 +186,7 @@ class PomodoroApp:
         )
 
     def update_display(self):
-        with self._update_icon_thread_lock:
+        with self._thread_lock:
             self.update_menu()
             if self.state in [State.DONE, State.STARTING]:
                 self.log.debug(f"Updating icon with state: {self.state}")
@@ -195,19 +208,19 @@ class PomodoroApp:
         if changing_timer == "WORK":
             self.work_timer_duration += value
             self.firebase.update_value(
-                ref=self.setting_ref, key="work_timer", value=self.work_timer_duration
+                ref=self.settings_firebase_ref, key="work_timer", value=self.work_timer_duration
             )
         elif changing_timer == "PAUSE":
             self.pause_timer_duration += value
             self.firebase.update_value(
-                ref=self.setting_ref, key="pause_timer", value=self.pause_timer_duration
+                ref=self.settings_firebase_ref, key="pause_timer", value=self.pause_timer_duration
             )
 
     def _toggle_feature_setting(self, feature_name):
         self.log.info(f"Toggling feature setting: {feature_name}")
         self.settings[feature_name] = not self.settings[feature_name]
         self.firebase.update_value(
-            ref=self.setting_ref, key=feature_name, value=self.settings[feature_name]
+            ref=self.settings_firebase_ref, key=feature_name, value=self.settings[feature_name]
         )
 
     def exit_app(self):
@@ -292,15 +305,21 @@ class PomodoroApp:
 
     def _increase_habit_value(self):
         hours_worked = int(self.time_worked / 60)
-        self.log.info(
-            f"Increasing Habit by one hour to {hours_worked} "
-            f"(worked {self.time_worked} minutes)"
-        )
-        self.habit_handler.checkin_simple(
-            habit_name=config["HABIT_NAME"],
-            date_stamp=datetime.now().strftime("%Y%m%d"),
-            value=hours_worked,
-        )
+        try:
+            if self.habit_handler is None:
+                self.habit_handler = self._init_habit_handler()
+                self.log.info("Reconnected to Ticktick Habit Api")
+            self.habit_handler.post_checkin(
+                habit_name=config["HABIT_NAME"],
+                date_stamp=datetime.now().strftime("%Y%m%d"),
+                value=hours_worked,
+            )
+            self.log.info(
+                f"Increased Habit by one hour to {hours_worked} "
+                f"(worked {self.time_worked} minutes)"
+            )
+        except Exception as e:
+            self.log.warning(f"Failed to increase habit value to {hours_worked}: {e}")
 
     def run_timer(self):
         """Function that runs the timer of the Pomodoro App (in a separate thread).
@@ -340,6 +359,6 @@ if __name__ == "__main__":
         "client_secret": secret("SPOTIFY_CLIENT_SECRET"),
         "redirect_uri": config["SPOTIFY"]["redirect_uri"],
         "scope": config["SPOTIFY"]["scope"],
-        "cache_path": f"{os.getenv('APPDATA')}/Pomo/.spotify_cache",
+        "cache_path": f"{os.getenv('APPDATA')}/{os.getenv('APPDATA_DIR')}/.spotify_cache",
     }
     pomo_app = PomodoroApp(firebase_rdb_url=_firebase_db_url, spotify_info=_spotify_info)

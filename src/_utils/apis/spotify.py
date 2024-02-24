@@ -64,6 +64,7 @@ class SpotifyHandler:
     def _initialize_api(self):
         """Initialise the Spotify API"""
         if not self.api:
+            self.log.debug("Initializing Spotify API")
             auth = SpotifyOAuth(
                 self.client_id,
                 self.client_secret,
@@ -75,6 +76,7 @@ class SpotifyHandler:
 
     def _delete_api(self):
         """Delete the Spotify API"""
+        self.log.debug(f"Deleting Spotify API: {self.api}")
         del self.api
         self.api = None
 
