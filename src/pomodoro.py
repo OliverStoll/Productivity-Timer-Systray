@@ -20,6 +20,7 @@ from src._utils.apis.firebase import FirebaseHandler
 from src._utils.system.sound import play_sound
 from src._utils.system.programs_windows import WindowHandler
 from src._utils.apis.ticktick_habits import TicktickHabitHandler
+from src._utils.system.bluetooth import bluetooth_is_enabled
 
 
 class State:
@@ -119,6 +120,14 @@ class PomodoroApp:
             self.log.warning(f"Can't connect to Spotify [{e}]")
             self.settings["Spotify"] = False
             return None
+
+    def _play_spotify_playlist(self, playlist_uri):
+        if (
+            self.spotify_handler
+            and self.settings["Spotify"]
+            and (bluetooth_is_enabled() or not self.settings["Spotify Bluetooth-Only"])
+        ):
+            self.spotify_handler.play_playlist(playlist_uri=playlist_uri)
 
     def _init_habit_handler(self):
         return TicktickHabitHandler(f"{self.appdata_path}/.ticktick_cookies")
@@ -237,8 +246,7 @@ class PomodoroApp:
         self.current_timer_value = self.work_timer_duration
         self.update_display()
         play_sound(config["sounds"]["start"], volume=self.settings["VOLUME"])
-        if self.spotify_handler and self.settings["Spotify"]:
-            self.spotify_handler.play_playlist(playlist_uri=config["work_playlist"])
+        self._play_spotify_playlist(playlist_uri=config["work_playlist"])
         if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         self.timer_thread = Thread(target=self.run_timer)
@@ -252,8 +260,7 @@ class PomodoroApp:
         self.update_display()
         self.stop_timer_thread_flag = True
         # features
-        if self.spotify_handler and self.settings["Spotify"]:
-            self.spotify_handler.play_playlist(playlist_uri=config["pause_playlist"])
+        self._play_spotify_playlist(playlist_uri=config["pause_playlist"])
         if self.settings["Home Assistant"]:
             trigger_webhook(url=self.state["webhook"])
         self.update_display()
@@ -270,9 +277,8 @@ class PomodoroApp:
             if self.settings["Hide Windows"]:
                 sleep(0.5)
                 self.window_handler.minimize_open_windows()
-            if self.spotify_handler and self.settings["Spotify"]:
-                sleep(1)
-                self.spotify_handler.play_playlist(playlist_uri=config["pause_playlist"])
+            sleep(1)
+            self._play_spotify_playlist(playlist_uri=config["pause_playlist"])
         elif self.state == State.PAUSE and self.time_worked < self.daily_work_goal:
             self.log.info("Switching PAUSE -> WORK state")
             self.state = State.READY

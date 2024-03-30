@@ -2,6 +2,8 @@ import pygetwindow as gw
 import subprocess
 from pywinauto import Desktop
 import psutil
+from time import sleep
+from src._utils.logger import create_logger
 
 
 def close_window_by_process(process_name):
@@ -43,18 +45,57 @@ def start_program(program_path):
 
 
 class WindowHandler:
-    def __init__(self):
-        self.exclude_list = ["Program Manager", "Windows Input Experience"]
+    def __init__(self, ignore_windows=None):
+        self.log = create_logger("Window Handler")
+        self.ignore_windows = (
+            ["", "Program Manager", "Windows Input Experience", "Settings"]
+            if ignore_windows is None
+            else ignore_windows
+        )
         self.minimized_windows = []
+
+    def get_user_windows(self):
+        """Get all open windows"""
+        user_windows = []
+        windows = gw.getAllWindows()
+        for window in windows:
+            if window.title not in self.ignore_windows:
+                user_windows.append(window)
+        return user_windows
 
     def minimize_open_windows(self):
-        all_windows = gw.getWindowsWithTitle("")
+        all_windows = self.get_user_windows()
         self.minimized_windows = []
         for win in all_windows:
-            if not win.isMinimized and win.title and win.title not in self.exclude_list:
+            if win.title not in self.ignore_windows and win.isMinimized is not True:
+                window_info = {
+                    "window": win,
+                    "is_maximised": win.isMaximized,
+                    "is_focused": win.isActive,
+                }
+                self.minimized_windows.append(window_info)
                 win.minimize()
-                self.minimized_windows.append(win)
+                self.log.debug(f"Minimized window: {window_info}")
 
     def restore_windows(self):
-        for win in self.minimized_windows:
-            win.restore()
+        """Restore the minimized windows, with the focused window restored last"""
+        focused_windows = [
+            win_info for win_info in self.minimized_windows if win_info["is_focused"]
+        ]
+        non_focused_windows = [
+            win_info for win_info in self.minimized_windows if not win_info["is_focused"]
+        ]
+        for win_info in non_focused_windows:
+            self.log.debug(f"Restoring non-focused window: {win_info['window'].title}")
+            win_info["window"].restore()
+        for win_info in focused_windows:
+            self.log.debug(f"Restoring focused window: {win_info['window'].title}")
+            win_info["window"].restore()
+
+
+if __name__ == "__main__":
+    handler = WindowHandler()
+    handler.minimize_open_windows()
+    print("Windows minimized", handler.minimized_windows)
+    sleep(1)
+    handler.restore_windows()

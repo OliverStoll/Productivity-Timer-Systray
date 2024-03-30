@@ -39,6 +39,7 @@ default_settings:
   # features
   Hide Windows: true
   Spotify: false
+  Spotify Bluetooth-Only: true
   Home Assistant: false
   VOLUME: 1
 

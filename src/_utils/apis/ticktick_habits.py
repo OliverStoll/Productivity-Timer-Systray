@@ -129,6 +129,10 @@ class TicktickHabitHandler:
                 return entry
         return None
 
+    def update_habit_metadata(self, habit_id):
+        # todo: update a single habit metadata, to update checkins quickly
+        pass
+
     def post_checkin(
         self, habit_name: str, date_stamp: str, status: int | None = None, value: int | None = None
     ):
@@ -198,7 +202,7 @@ class TicktickHabitHandler:
         return habit_entries_df
 
 
-if __name__ == "__main__":
+def show_habit_heatmap():
     api = TicktickHabitHandler(cookies_path="../.ticktick_cookies")
     df = api.get_all_habit_data("20220101")
     df = df[df["habitName"] == "Sport"]
@@ -231,3 +235,7 @@ if __name__ == "__main__":
     plt.xticks([])
     plt.yticks(rotation=0)
     plt.show()
+
+
+if __name__ == "__main__":
+    pass
