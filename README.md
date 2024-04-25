@@ -20,6 +20,8 @@ To play spotify playlists on start of work and pause, and changing the timer dur
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
 - `SPOTIFY_DEVICE_NAME`: Friendly name of the Spotify Device to play music on while working. (Kept in secrets instead of config, to not be shared between different workstations by accident)
+- `TICKTICK_USERNAME`: Email of the TickTick Account to use for increasing the "Arbeiten" habit count
+- `TICKTICK_PASSWORD`: 
 
 You can optain these by creating a Spotify Developer Account and a Firebase Project:
 - Firebase Realtime Database (*free version*): https://firebase.google.com/
@@ -32,14 +34,11 @@ When parts of the secrets are missing, the app will still work, but without the 
 After cloning the repository and creating the secrets file & virtual environment, run to install the dependencies and build the executable:
 ```shell
 # Codeblock is reversed due to Pycharm bug
-poetry install --only main --no-root
+poetry install --no-root
 pip install poetry
 ```
 ```shell
 pyinstaller -i ../res/pomodoro.ico -n Pomo --onefile --noconsole --add-data "../config.yml;." --add-data "../.env;." --add-data "../res/*;res/" --specpath build/ .\src\pomodoro.py
-```
-```shell
-pyinstaller -i ../res/pomodoro.ico -n Keep_Pomo_Alive --onefile --noconsole --specpath build/ .\src\keep_pomo_alive.py
 ```
 ```shell
 pyinstaller -n Close_Spotify_On_Startup --onefile --noconsole --specpath build/ .\src\close_spotify_startup.py

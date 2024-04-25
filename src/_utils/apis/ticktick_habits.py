@@ -58,7 +58,7 @@ class TicktickHabitHandler:
         self.log.debug("No cookies from file, trying to load cookies via Login (Selenium)")
         cookies = self._get_cookies_from_browser()
         self.log.info(f"Loaded cookies via Selenium: {cookies}")
-        self._save_cookies_to_path()
+        self._save_cookies_to_path(cookies=cookies)
         return cookies
 
     def _get_cookies_from_file(self):
@@ -89,7 +89,7 @@ class TicktickHabitHandler:
         sleep(3)
         cookies_dict = driver.get_cookies()
         driver.quit()
-        assert len(cookies_dict) == 5, "Not exactly 5 cookies found. Something went wrong."
+        assert len(cookies_dict) >= 5, "Less than 5 cookies found. Something went wrong."
         cookies = "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies_dict])
         return cookies
 
