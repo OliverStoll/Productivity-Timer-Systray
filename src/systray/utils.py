@@ -40,9 +40,3 @@ def draw_icon_circle(color: str):
 
     return image
 
-
-def trigger_webhook(url: str):
-    try:
-        requests.post(url)
-    except Exception as e:
-        _log.warning(f"Error sending webhook {url}: [{e}]")

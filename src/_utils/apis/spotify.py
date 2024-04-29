@@ -6,7 +6,7 @@ from spotipy import Spotify as SpotifyAPI
 from spotipy import CacheHandler
 
 from src._utils.logger import create_logger
-from src._utils.common import secret, config
+from src._utils.common import secret, CONFIG
 
 
 class CustomCacheHandler(CacheHandler):
@@ -156,8 +156,8 @@ if __name__ == "__main__":
         "device_name": secret("SPOTIFY_DEVICE_NAME"),
         "client_id": secret("SPOTIFY_CLIENT_ID"),
         "client_secret": secret("SPOTIFY_CLIENT_SECRET"),
-        "redirect_uri": config["SPOTIFY"]["redirect_uri"],
-        "scope": config["SPOTIFY"]["scope"],
+        "redirect_uri": CONFIG["SPOTIFY"]["redirect_uri"],
+        "scope": CONFIG["SPOTIFY"]["scope"],
         "cache_path": f"{os.getenv('APPDATA')}/Pomo/.spotify_cache",
     }
     spotify = SpotifyHandler(**_spotify_info)

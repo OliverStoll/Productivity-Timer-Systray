@@ -6,18 +6,28 @@ import pygame
 from src._utils.common import ROOT_DIR
 
 
-def play_sound(file_path='res/start-sound.mp3', volume=0.5):
-    def play_sound_thread_fn():
+class SoundHandler:
+    def __init__(self, default_volume):
+        self.default_volume = default_volume
+
+    def play_sound(self, file_path, volume=None):
+        """Play sound in a separate thread"""
+        thread = threading.Thread(target=self._play_sound, args=(file_path, volume))
+        thread.start()
+
+    def _play_sound(self, file_path, volume=None):
+        volume = volume or self.default_volume
         pygame.mixer.init()
-        pygame.mixer.music.load(ROOT_DIR + file_path)
         pygame.mixer.music.set_volume(volume)
+        pygame.mixer.music.load(filename=file_path)
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
             continue
+        pygame.mixer.quit()
 
-    # start the thread
-    threading.Thread(target=play_sound_thread_fn).start()
+
 
 
 if __name__ == '__main__':
-    play_sound('res/start-sound.mp3')
+    sound_handler = SoundHandler(default_volume=1)
+    sound_handler.play_sound(f'{ROOT_DIR}res/start-sound.mp3')

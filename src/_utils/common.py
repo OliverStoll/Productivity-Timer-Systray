@@ -15,12 +15,12 @@ dotenv_exists = dotenv.load_dotenv()
 log.debug(f".env file {'exists' if dotenv_exists else 'DOES NOT exist'}")
 
 stream = open(f"{ROOT_DIR}config.yml", "r", encoding="utf-8")
-config = yaml.safe_load(stream)
+CONFIG = yaml.safe_load(stream)
 
 
 def config_entry(key: str):
     """load an entry from the config"""
-    return config[key]
+    return CONFIG[key]
 
 
 def load_env_file(path: str):
