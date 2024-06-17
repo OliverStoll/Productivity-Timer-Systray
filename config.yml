@@ -1,55 +1,57 @@
 #####   INTERNAL SETTINGS   #####
-sounds:
-  start: 'res/start-sound.mp3'
-  pause: 'res/pause-sound.mp3'
-states:
-  WORK:
-    color: '#ff9800'
-    webhook: 'pomodoro-work'
-  READY:
-    color: '#e65100'
-    webhook: 'pomodoro-work'
-  PAUSE:
-    color: '#1aa7ec'
-    webhook: 'pomodoro-pause'
-  DONE:
-    color: '#4caf50'
-    webhook: 'pomodoro-pause'
-  STARTING:
-    color: '#e65100'
 
-
-# Firebase
+# Firebase database references
 FIREBASE_REF_TIME_DONE: 'APPDATA/pomodoro-windows/Arbeitszeit'
 FIREBASE_REF_SETTINGS: 'APPDATA/pomodoro-windows/Settings'
 
+# Spotify API settings
+SPOTIFY:
+  redirect_uri: "http://localhost:7787"
+  scope: "user-read-playback-state user-modify-playback-state user-read-currently-playing"
 
-# Ticktick
-HABIT_NAME: 'Arbeiten'
 
 
-#####   USER SETTINGS   #####
+#####   FEATURE SETTINGS   #####
 
-# POMODORO:
+# Icon colors
+COLORS:
+  WORK: '#ff9800'
+  READY: '#e65100'
+  PAUSE: '#1aa7ec'
+  DONE: '#4caf50'
+  STARTING: '#e65100'
+
+TICKTICK_HABIT_NAME: 'Arbeiten'
+
+SOUNDS:
+  WORK: 'res/start-sound.mp3'
+  PAUSE: 'res/pause-sound.mp3'
+SOUNDS_VOLUME: 1
+
+WEBHOOKS:
+  WORK: 'pomodoro-work'
+  READY: 'pomodoro-work'
+  PAUSE: 'pomodoro-pause'
+  DONE: 'pomodoro-pause'
+
+PLAYLISTS:  # which playlist to play when switching to this state
+  WORK: 'spotify:playlist:6CCoTOqud9zrWmuOl3L7VK'
+  PAUSE: # 'spotify:playlist:4tCPOhgVlAFTtMSrT7T97j'
+  READY: # 'spotify:playlist:6CCoTOqud9zrWmuOl3L7VK'
+  DONE: # 'spotify:playlist:4tCPOhgVlAFTtMSrT7T97j'
+
+
+#####   GLOBAL SETTINGS   #####
+
 default_settings:
-  work_timer_duration: 60
+  work_timer_duration: 90
   pause_timer_duration: 15
   timer_step_size: 5
   daily_work_time_goal: 240
   features:
     Hide Windows: true
     Spotify: false
-    # Spotify Bluetooth-Only: true
     Home Assistant: false
     Play Sound: true
     Habit Tracking: true
-
-  VOLUME: 1
-
-
-# SPOTIFY
-work_playlist: 'spotify:playlist:6CCoTOqud9zrWmuOl3L7VK'
-pause_playlist:  # 'spotify:playlist:4tCPOhgVlAFTtMSrT7T97j'
-SPOTIFY:
-  redirect_uri: "http://localhost:7787"
-  scope: "user-read-playback-state user-modify-playback-state user-read-currently-playing"
+    # Spotify Bluetooth-Only: true

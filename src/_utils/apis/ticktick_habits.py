@@ -1,15 +1,13 @@
 import requests
 import json
 import datetime
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+from datetime import datetime
 from time import sleep
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+
 from src._utils.common import secret
 from src._utils.logger import create_logger
-from selenium.webdriver.common.by import By
 
 
 class TicktickHabitHandler:
@@ -184,6 +182,7 @@ class TicktickHabitHandler:
             self.log.error(f"Error posting habit checking: {e}")
 
     def get_all_habit_data(self, after_stamp: str):
+        import pandas as pd
         habit_ids = list(self.habit_ids.values())
         url = "https://api.ticktick.com/api/v2/habitCheckins/query"
         payload = {"habitIds": habit_ids, "afterStamp": after_stamp}
@@ -203,6 +202,10 @@ class TicktickHabitHandler:
 
 
 def show_habit_heatmap():
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
     api = TicktickHabitHandler(cookies_path="../.ticktick_cookies")
     df = api.get_all_habit_data("20220101")
     df = df[df["habitName"] == "Sport"]

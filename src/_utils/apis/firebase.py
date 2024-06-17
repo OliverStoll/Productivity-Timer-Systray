@@ -1,6 +1,7 @@
 import requests
 import json
-from pandas import DataFrame
+import datetime
+import importlib
 
 from src._utils.logger import create_logger
 
@@ -90,7 +91,7 @@ class FirebaseHandler:
         except Exception as e:
             self.log.error(f"Failed to set entry {ref}: {e}")
 
-    def set_entry_df(self, ref: str, df: DataFrame):
+    def set_entry_df(self, ref: str, df):
         """Set a dataframe entry in firebase, by first converting it to a dictionary"""
         if self._check_inactive():
             return
@@ -103,14 +104,18 @@ class FirebaseHandler:
         except Exception as e:
             self.log.error(f"Failed to set df entry {ref}: {e}")
 
-    def get_entry_df(self, ref: str) -> DataFrame | None:
+    def get_entry_df(self, ref: str) -> object | None:
         """Get a dataframe entry from firebase, by converting it from a dictionary"""
+        if not importlib.find_loader("pandas"):
+            self.log.info("Pandas not found. Will import it now")
+            from pandas import DataFrame
+
         if self._check_inactive():
             return None
         try:
             data = requests.get(url=f"{self.database_url}/{ref}.json").json()
             self.log.debug(f"Got df entry {ref} from firebase")
-            return DataFrame.from_dict(data, orient="index")
+            return DataFrame.from_dict(data, orient="index")  # noqa (pandas import)
         except Exception as e:
             self.log.error(f"Failed to get df entry {ref}: {e}")
             return None

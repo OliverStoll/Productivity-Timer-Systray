@@ -1,12 +1,14 @@
+from datetime import datetime
 import pygetwindow as gw
 import subprocess
-from pywinauto import Desktop
 import psutil
 from time import sleep
 from src._utils.logger import create_logger
 
 
 def close_window_by_process(process_name):
+    from pywinauto import Desktop
+
     windows = Desktop(backend="uia").windows()
     for win in windows:
         pid = win.process_id()

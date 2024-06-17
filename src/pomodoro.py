@@ -21,120 +21,162 @@ from src._utils.apis.homeassistant import HomeAssistantHandler
 from src._utils.system.sound import SoundHandler
 from src._utils.system.programs_windows import WindowHandler
 from src._utils.apis.ticktick_habits import TicktickHabitHandler
-from src._utils.system.bluetooth import bluetooth_is_enabled
+
+# from src._utils.system.bluetooth import bluetooth_is_enabled
+
+
+POMODORO_FEATURES = {
+    "Hide Windows": {
+        "class": WindowHandler,
+        "kwargs": {}
+    },
+    "Spotify": {
+        "class": SpotifyHandler,
+        "kwargs": {
+            "device_name": secret("SPOTIFY_DEVICE_NAME"),
+            "client_id": secret("SPOTIFY_CLIENT_ID"),
+            "client_secret": secret("SPOTIFY_CLIENT_SECRET"),
+            "redirect_uri": CONFIG["SPOTIFY"]["redirect_uri"],
+            "scope": CONFIG["SPOTIFY"]["scope"],
+            "cache_path": f"{os.getenv('APPDATA')}/Pomodoro/.spotify_cache"
+        }
+    },
+    "Home Assistant": {
+        "class": HomeAssistantHandler,
+        "kwargs": {"base_url": "http://homeassistant.local:8123/api/webhook/"}
+    },
+    "Play Sound": {
+        "class": SoundHandler,
+        "kwargs": {"default_volume": 1}
+    },
+    "Habit Tracking": {
+        "class": TicktickHabitHandler,
+        "kwargs": {"cookies_path": f"{os.getenv('APPDATA')}/Pomodoro/.ticktick_cookies"}
+    },
+}
 
 
 class State:
-    """Class to represent the current state of the timer. Loads corresponding color and webhook from config."""
-    WORK = CONFIG["states"]["WORK"]
-    PAUSE = CONFIG["states"]["PAUSE"]
-    READY = CONFIG["states"]["READY"]
-    DONE = CONFIG["states"]["DONE"]
-    STARTING = CONFIG["states"]["STARTING"]
+    """ Represents state of Pomodoro Timer, while containing color and webhook from config."""
+    WORK = "WORK"
+    PAUSE = "PAUSE"
+    READY = "READY"
+    DONE = "DONE"
+    STARTING = "STARTING"
 
 
-class PomodoroFeatures:
+class PomodoroFeatureHandler:
+    """
+    Class to handle the different additional features of the Pomodoro Timer.
+
+    Implements error handling as well as a toggle function to enable/disable features.
+    """
+    log = create_logger("Pomodoro Features")
+
     def __init__(self, settings: dict, firebase=None):
-        self.log = create_logger("Pomodoro Features")
         self.firebase = firebase
-        self.handlers: dict[str, any] = {
-            "Hide Windows": {"class": WindowHandler},
-            "Spotify": {
-                "class": SpotifyHandler,
-                "kwargs": {
-                    "device_name": secret("SPOTIFY_DEVICE_NAME"),
-                    "client_id": secret("SPOTIFY_CLIENT_ID"),
-                    "client_secret": secret("SPOTIFY_CLIENT_SECRET"),
-                    "redirect_uri": CONFIG["SPOTIFY"]["redirect_uri"],
-                    "scope": CONFIG["SPOTIFY"]["scope"],
-                    "cache_path": f"{os.getenv('APPDATA')}/{os.getenv('APPDATA_DIR')}/.spotify_cache",
-                }
-            },
-            # "Spotify Bluetooth-Only": False,  TODO
-            "Home Assistant": {"class": HomeAssistantHandler, "kwargs": {
-                "base_url": "http://homeassistant.local:8123/api/webhook/"}},
-            "Play Sound": {"class": SoundHandler, "kwargs": {"default_volume": 1}},
-            "Habit Tracking": {"class": TicktickHabitHandler, "kwargs": {
-                "cookies_path": f"{os.getenv('APPDATA')}/{os.getenv('APPDATA_DIR')}/.ticktick_cookies"}},
-        }
-        self.init_handlers()
-        self.init_settings(settings)
+        self.firebase_settings_ref = CONFIG["FIREBASE_REF_SETTINGS"]
+        self.features: dict[str, dict] = POMODORO_FEATURES
 
-    def init_handlers(self):
-        for name, feature in self.handlers.items():
-            try:
-                if "kwargs" in feature:
-                    feature["handler"] = feature["class"](**feature["kwargs"])
-                else:
-                    feature["handler"] = feature["class"]()
-                self.log.info(f"Initialized {name} Handler")
-            except Exception as e:
-                self.log.warning(f"infos Handler {feature} not initialized: [{e}]")
-                feature["handler"] = None
+        for feature_name, feature_info in self.features.items():
+            feature_info["active"] = settings.get(feature_name, False)
+            feature_info["handler"] = None
+            feature_info["kwargs"] = feature_info.get("kwargs", {})
+            handler_init_thread = Thread(target=self._init_feature_handler, args=(feature_name,))
+            handler_init_thread.start()
 
-    def init_settings(self, settings: dict):
-        for name, feature in self.handlers.items():
-            feature["active"] = settings.get(name, False)
+    def _init_feature_handler(self, feature_name: str):
+        feature_info = self.features[feature_name]
+        try:
+            feature_info["handler"] = feature_info["class"](**feature_info["kwargs"])
+            self.log.debug(f"Initialized {feature_name} Handler")
+        except Exception as e:
+            self.log.warning(f"Feature handler {feature_info} not initialized: [{e}]")
+            feature_info["handler"] = None
 
-    def call(self, feature: str, function: str, kwargs: dict | None = None):
-        """Call a function of a feature if it is active and initialized."""
-        if self.handlers[feature]["active"] and self.handlers[feature]["handler"] is not None:
-            try:
-                if kwargs:
-                    self.handlers[feature]["handler"].__getattribute__(function)(**kwargs)
-                else:
-                    self.handlers[feature]["handler"].__getattribute__(function)()
-                self.log.debug(f"Called {feature} function {function} with args: {kwargs}")
-            except Exception as e:
-                self.log.warning(f"Failed to run {feature} function {function}: {e}")
-        elif not self.handlers[feature]["active"]:
-            self.log.debug(f"Trying {feature}-{function}: {feature} is not active.")
-        elif self.handlers[feature]["handler"] is None:
-            self.log.debug(f"Trying {feature}-{function}: {feature} had an error initializing.")
+    def call(self, feature_name: str, method: str, kwargs: dict | None = None):
+        """ Call the method of a feature, if it is active and initialized. """
 
-    def toggle(self, feature: str):
-        """ Toggle the active state of a feature. """
-        self.log.info(f"Toggling feature setting: {feature}")
-        self.handlers[feature]["active"] = not self.handlers[feature]["active"]
+        kwargs = kwargs if kwargs else {}
+        feature_info = self.features[feature_name]
+        if not feature_info["active"]:
+            self.log.debug(f"Trying {feature_name}-{method}: {feature_name} is not active")
+            return
+
+        if not feature_info["handler"]:
+            self.log.debug(f"Trying {feature_name}-{method}: {feature_name} is not initialized")
+            return
+
+        try:
+            getattr(feature_info["handler"], method)(**kwargs)
+            self.log.debug(f"Called {feature_name} method {method} with args: {kwargs}")
+        except Exception as e:
+            self.log.warning(f"Failed to run {feature_name} method {method}: {e}")
+
+    def toggle_setting(self, feature_name: str):
+        feature_info = self.features[feature_name]
+        self.log.info(f"Toggling feature setting: {feature_name}")
+        feature_info["active"] = not feature_info["active"]
         if self.firebase:
-            self.firebase.set_entry(ref=f'{CONFIG["FIREBASE_REF_SETTINGS"]}/{feature}',
-                                    data=self.handlers[feature]["active"])
+            firebase_ref = f'{self.firebase_settings_ref}/{feature_name}'
+            self.firebase.set_entry(ref=firebase_ref, data=feature_info["active"])
+
+
+class PomodoroMenu:
+    pass
 
 
 class PomodoroApp:
-    def __init__(self, firebase_rdb_url: str | None = None):
-        self.log = create_logger("Pomodoro Timer")
+    log = create_logger("Pomodoro App")
+    thread_lock = threading.Lock()
+
+    def __init__(self, firebase_rtdb_url: str | None = None):
         self.log.info("\n\n\n\n\t\tSTARTING POMODORO TIMER...\n\n\n")
-        self._load_secrets_file()
-        self.thread_lock = threading.Lock()
-        self.firebase = FirebaseHandler(firebase_rdb_url)
-        self.features = PomodoroFeatures(settings=CONFIG["default_settings"]["features"],
-                                         firebase=self.firebase)
+        secrets_path = f"{os.getenv('APPDATA')}/Pomodoro/.env"
+        self._load_secrets_file(secrets_path=secrets_path)
+
+        self.firebase = FirebaseHandler(realtime_db_url=firebase_rtdb_url)
+        self.firebase_settings_ref = CONFIG["FIREBASE_REF_SETTINGS"]
+        self.firebase_times_worked_ref = CONFIG["FIREBASE_REF_TIME_DONE"]
+        feature_settings = CONFIG["default_settings"]["features"]
+        self.feature_handler = PomodoroFeatureHandler(settings=feature_settings,
+                                                      firebase=self.firebase)
+
+        # features data
+        self.sound_files = {name: f"{ROOT_DIR}/{path}" for name, path in CONFIG["SOUNDS"].items()}
+        self.colors = CONFIG["COLORS"]
+        self.webhooks = CONFIG["WEBHOOKS"]
+        self.playlists = CONFIG["PLAYLISTS"]
+        self.ticktick_habit_name = CONFIG["TICKTICK_HABIT_NAME"]
+
         self._init_app_with_offline_data()
 
         # try to load real settings from firebase
-        self._init_settings_from_fb()
-        self.features.init_settings(self.settings["features"])
+        self._init_settings_from_firebase()
 
         # load timer values
         self.work_timer_duration = self.settings["work_timer_duration"]
         self.pause_timer_duration = self.settings["pause_timer_duration"]
         self.daily_work_goal = self.settings["daily_work_time_goal"]
         self.current_timer_value = self.work_timer_duration
-        self.date_of_time_worked = datetime.now().strftime("%Y-%m-%d")
-        self.time_worked = self._load_time_worked_from_fb()
+        self.current_date = datetime.now().strftime("%Y-%m-%d")
+        self.time_worked = self._load_time_worked_from_firebase()
+
 
         # systray app
-        self.state = State.READY
+        self.current_state = State.READY
         self.stop_timer_thread_flag = False
+        self.exited_flag = False
         self.timer_thread = None
         self.update_display()
         self.log.info("Pomodoro Timer initialised.")
 
+    # INITIALIZATION METHODS
     def _init_app_with_offline_data(self):
         self.log.debug("Starting app with stub data")
         self.settings = CONFIG["default_settings"]
-        self.state = State.STARTING
+        self.settings_step_size = self.settings["timer_step_size"]
+        self.current_state = State.STARTING
         self.systray_app = pystray.Icon("Pomodoro Timer")
         self.time_worked = 0
         self.work_timer_duration = self.settings["work_timer_duration"]
@@ -142,16 +184,15 @@ class PomodoroApp:
         self.update_display()
         self.systray_app.run_detached()
 
-    def _load_secrets_file(self):
-        secrets_path = f"{os.getenv('APPDATA')}/{os.getenv('APPDATA_DIR')}/.env"
+    def _load_secrets_file(self, secrets_path):
         if os.path.exists(secrets_path):
-            self.log.info(f"Loading .env file from {secrets_path}")
             load_env_file(secrets_path)
+            self.log.info(f"Loaded .env file from {secrets_path}")
 
-    def _init_settings_from_fb(self):
+    def _init_settings_from_firebase(self):
         """Load settings from firebase or use default settings if not available."""
         try:
-            settings = self.firebase.get_entry(ref=CONFIG["FIREBASE_REF_SETTINGS"])
+            settings = self.firebase.get_entry(ref=self.firebase_settings_ref)
             assert isinstance(settings, dict)
             self.settings = settings
             self.log.info("Loaded settings from firebase")
@@ -159,184 +200,183 @@ class PomodoroApp:
             self.log.warning(f"Can't load settings from firebase: [{e}], staying with"
                              f" default settings {CONFIG['default_settings']}")
             try:
-                self.firebase.set_entry(ref=CONFIG["FIREBASE_REF_SETTINGS"], data=self.settings)
+                self.firebase.set_entry(ref=self.firebase_settings_ref, data=self.settings)
             except Exception as e:
                 self.log.warning(f"Could not save default settings to Firebase: {e}")
 
-    def _load_time_worked_from_fb(self):
-        time_worked_ref = f"{CONFIG["FIREBASE_REF_TIME_DONE"]}/{self.date_of_time_worked}/time_worked"
+    def _load_time_worked_from_firebase(self):
+        time_worked_ref = f"{self.firebase_times_worked_ref}/{self.current_date}/time_worked"
         try:
             time_worked = int(self.firebase.get_entry(ref=time_worked_ref))
             self.log.info(f"Loaded time_worked from firebase: {time_worked}")
         except Exception as e:
-            self.log.info(f"Can't load {self.date_of_time_worked}: time_worked from firebase, "
+            self.log.info(f"Can't load {self.current_date}: time_worked from firebase, "
                           f"setting to 0 instead (most likely a new day)")
             time_worked = 0
         return time_worked
 
+    # BUILDING THE SYSTRAY MENU
     def update_menu(self):
-        def _get_feature_setting_item(feature_name):
-            return Item(
-                feature_name,
-                lambda: self.features.toggle(feature_name),
-                checked=lambda item: self.features.handlers[feature_name]["active"],
-                enabled=self.features.handlers[feature_name]["handler"] is not None,
-            )
-
-        step_size = self.settings["timer_step_size"]
         self.systray_app.menu = Menu(
             Item(
-                "Start",
-                self.menu_button_start,
-                default=(self.state == State.READY),
-                enabled=lambda item: self.state != State.WORK,
+                text="Start",
+                action=self.menu_button_start,
+                default=(self.current_state == State.READY),
+                enabled=lambda item: self.current_state != State.WORK,
             ),
             Item(
-                "Stop",
-                self.menu_button_stop,
-                default=(self.state == State.WORK),
-                enabled=lambda item: self.state != State.READY and self.state != State.DONE,
+                text="Stop",
+                action=self.menu_button_stop,
+                default=(self.current_state == State.WORK or self.current_state == State.PAUSE),
+                enabled=lambda
+                    item: self.current_state != State.READY and self.current_state != State.DONE,
             ),
-            Item(
-                "Settings",
-                Menu(
-                    Item(
-                        f"Worked {self.time_worked / self.work_timer_duration:.1f} blocks",
-                        action=None,
-                    ),
-                    Menu.SEPARATOR,
-                    Item(
-                        f"Work +{step_size}",
-                        lambda: self._change_timer_setting("WORK", step_size)
-                    ),
-                    Item(
-                        f"Work -{step_size}",
-                        lambda: self._change_timer_setting("WORK", -step_size)
-                    ),
-                    Item(
-                        f"Pause +{step_size}",
-                        lambda: self._change_timer_setting("PAUSE", step_size),
-                    ),
-                    Item(
-                        f"Pause -{step_size}",
-                        lambda: self._change_timer_setting("PAUSE", -step_size),
-                    ),
-                    Menu.SEPARATOR,
-                    _get_feature_setting_item("Hide Windows"),
-                    _get_feature_setting_item("Spotify"),
-                    _get_feature_setting_item("Home Assistant"),
-                    _get_feature_setting_item("Play Sound"),
-                    _get_feature_setting_item("Habit Tracking"),
-                    Menu.SEPARATOR,
-                    Item("Exit", self.exit_app),
-                ),
-            ),
+            Item("Settings", self._get_settings_menu())
+        )
+
+    def _get_settings_menu(self):
+        time_worked = self.time_worked / self.work_timer_duration
+        return Menu(
+            Item(text=f"Worked {time_worked:.1f} blocks", action=None),
+            Menu.SEPARATOR,
+            self._get_settings_menu_change_timer_item(timer_name="WORK", sign='+'),
+            self._get_settings_menu_change_timer_item(timer_name="WORK", sign='-'),
+            self._get_settings_menu_change_timer_item(timer_name="PAUSE", sign='+'),
+            self._get_settings_menu_change_timer_item(timer_name="PAUSE", sign='-'),
+            Menu.SEPARATOR,
+            self._get_settings_menu_feature_item(feature_name="Hide Windows"),
+            self._get_settings_menu_feature_item(feature_name="Spotify"),
+            self._get_settings_menu_feature_item(feature_name="Home Assistant"),
+            self._get_settings_menu_feature_item(feature_name="Play Sound"),
+            self._get_settings_menu_feature_item(feature_name="Habit Tracking"),
+            Menu.SEPARATOR,
+            Item("Exit", self.menu_button_exit_app),
+        )
+
+    def _get_settings_menu_change_timer_item(self, timer_name, sign):
+        return Item(
+            text=f"{timer_name} {sign}{self.settings_step_size}",
+            action=lambda: self.menu_button_change_timer(timer_name, sign),
+        )
+
+    def _get_settings_menu_feature_item(self, feature_name):
+        return Item(
+            text=feature_name,
+            action=lambda: self.feature_handler.toggle_setting(feature_name),
+            checked=lambda item: self.feature_handler.features[feature_name]["active"],
+            enabled=self.feature_handler.features[feature_name]["handler"] is not None,
         )
 
     def update_display(self):
         with self.thread_lock:
             self.update_menu()
-            if self.state in [State.DONE, State.STARTING]:
-                self.log.debug(f"Updating icon with state: {self.state}")
-                self.systray_app.icon = draw_icon_circle(color=self.state["color"])
+            if self.current_state in [State.DONE, State.STARTING]:
+                self.log.debug(f"Updating icon with state: {self.current_state}")
+                self.systray_app.icon = draw_icon_circle(color=self.colors[self.current_state])
             else:
                 self.log.debug(f"Updating icon with value: {self.current_timer_value}")
-                self.systray_app.icon = draw_icon_text(
-                    text=str(self.current_timer_value), color=self.state["color"]
-                )
+                self.systray_app.icon = draw_icon_text(text=str(self.current_timer_value),
+                                                       color=self.colors[self.current_state])
 
-    def _change_timer_setting(self, changing_timer, value):
+    # MENU BUTTON ACTIONS
+    def menu_button_change_timer(self, changing_timer, value):
         self.log.info(f"Changing {changing_timer} timer by {value}")
         if changing_timer == "WORK":
-            if self.state != State.PAUSE:
+            if self.current_state != State.PAUSE:
                 self.current_timer_value += value
                 self.update_display()
             self.work_timer_duration += value
             self.firebase.set_entry(
-                ref=f'{CONFIG["FIREBASE_REF_SETTINGS"]}/work_timer', data=self.work_timer_duration
+                ref=f'{self.firebase_settings_ref}/work_timer_duration',
+                data=self.work_timer_duration
             )
         elif changing_timer == "PAUSE":
-            if self.state == State.PAUSE:
+            if self.current_state == State.PAUSE:
                 self.current_timer_value += value
                 self.update_display()
             self.pause_timer_duration += value
             self.firebase.set_entry(
-                ref=f'{CONFIG["FIREBASE_REF_SETTINGS"]}/pause_timer', data=self.pause_timer_duration
+                ref=f'{self.firebase_settings_ref}/pause_timer_duration',
+                data=self.pause_timer_duration
             )
 
-    def exit_app(self):
-        """Function that is called when the exit button is pressed. Sets the stop_timer_thread_flag for the timer thread."""
+    def menu_button_exit_app(self):
+        """ Function that is called when the exit button is pressed. Sets thread stop flag """
         self.log.info("Exiting Pomodoro Timer - setting stop_timer_thread_flag and stopping app")
         self.stop_timer_thread_flag = True
         sleep(0.11)
+        self.exited_flag = True
         self.systray_app.stop()
 
     def menu_button_start(self):
         """Function that is called when the start button is pressed"""
         self.log.info("Menu Start pressed")
-        self.state = State.WORK
+        self.current_state = State.WORK
         self.current_timer_value = self.work_timer_duration
         self.update_display()
-        self.features.call("Play Sound", "_play_sound",
-                           {"file_path": f'{ROOT_DIR}{CONFIG["sounds"]["start"]}'})
-        self.features.call("Spotify", "play_playlist", {"playlist_uri": CONFIG["work_playlist"]})
-        self.features.call("Home Assistant", "trigger_webhook", {"url": self.state["webhook"]})
+        self.feature_handler.call("Play Sound", "_play_sound",
+                                  {"file_path": f'{self.sound_files[self.current_state]}'})
+        self.feature_handler.call("Spotify", "play_playlist",
+                                  {"playlist_uri": self.playlists[self.current_state]})
+        self.feature_handler.call("Home Assistant", "trigger_webhook",
+                                  {"url": self.webhooks[self.current_state]})
         self.timer_thread = Thread(target=self.run_timer)
         self.timer_thread.start()
-        self.update_display()
 
     def menu_button_stop(self):
         """Function that is called when the stop button is pressed"""
         self.log.info("Menu Stop pressed")
-        self.state = State.READY
+        self.current_state = State.READY
+        self.current_timer_value = self.work_timer_duration
         self.update_display()
         self.stop_timer_thread_flag = True
-        self.features.call("Spotify", "play_playlist", {"playlist_uri": CONFIG["pause_playlist"]})
-        self.features.call("Home Assistant", "trigger_webhook", {"url": self.state["webhook"]})
-        self.update_display()
+        self.feature_handler.call("Spotify", "play_playlist",
+                                  {"playlist_uri": self.playlists[self.current_state]})
+        self.feature_handler.call("Home Assistant", "trigger_webhook",
+                                  {"url": self.webhooks[self.current_state]})
         # Thread.join(self.timer_thread)  # should terminate within 0.1s
 
     def _switch_to_next_state(self):
         """Switch to the next state and update the icon."""
-        self.log.debug(f"Switching to next state from {self.state} with worked: {self.time_worked}")
-        if self.state == State.WORK:
+        self.log.debug(f"Switching to next state from {self.current_state} [{self.time_worked}]")
+        if self.current_state == State.WORK:
             self.log.info("Switching WORK -> PAUSE state")
-            self.state = State.PAUSE
+            self.current_state = State.PAUSE
             self.current_timer_value = self.pause_timer_duration
-            self.features.call("Play Sound", "_play_sound",
-                               {"file_path": f'{ROOT_DIR}{CONFIG["sounds"]["pause"]}'})
-            self.features.call("Hide Windows", "minimize_open_windows")
+            self.feature_handler.call("Play Sound", "_play_sound",
+                                      {"file_path": self.sound_files[self.current_state]})
+            self.feature_handler.call("Hide Windows", "minimize_open_windows")
             sleep(1)
-            self.features.call("Spotify", "play_playlist",
-                               {"playlist_uri": CONFIG["pause_playlist"]})
-        elif self.state == State.PAUSE and self.time_worked < self.daily_work_goal:
+            self.feature_handler.call("Spotify", "play_playlist",
+                                      {"playlist_uri": self.playlists[self.current_state]})
+        elif self.current_state == State.PAUSE and self.time_worked < self.daily_work_goal:
             self.log.info("Switching PAUSE -> WORK state")
-            self.state = State.READY
+            self.current_state = State.READY
             self.current_timer_value = self.work_timer_duration
-            self.features.call(feature="Hide Windows", function="restore_windows")
-        elif self.state == State.PAUSE and self.time_worked >= self.daily_work_goal:
+            self.feature_handler.call(feature_name="Hide Windows", method="restore_windows")
+        elif self.current_state == State.PAUSE and self.time_worked >= self.daily_work_goal:
             self.log.info("Switching PAUSE -> DONE state")
-            self.state = State.DONE
+            self.current_state = State.DONE
             self.current_timer_value = self.work_timer_duration
 
         # reset the timer, update the icon and trigger webhook
         self.update_display()
-        self.features.call(feature="Home Assistant", function="trigger_webhook",
-                           kwargs={"url": self.state["webhook"]})
-        if self.state == State.PAUSE:
+        self.feature_handler.call(feature_name="Home Assistant", method="trigger_webhook",
+                                  kwargs={"url": self.webhooks[self.current_state]})
+        if self.current_state == State.PAUSE:
             self.run_timer()
 
     def _increase_time_worked(self):
         """Increase the time_worked counter and update it in firebase"""
         current_date = datetime.now().strftime("%Y-%m-%d")
-        if self.date_of_time_worked != current_date:
-            self.date_of_time_worked = current_date
+        if self.current_date != current_date:
+            self.current_date = current_date
             self.time_worked = 1
             self.log.info(f"New day: {current_date}. Reset time_done to 1.")
         else:
             self.time_worked += 1
-        ref = f"{CONFIG["FIREBASE_REF_TIME_DONE"]}/{current_date}"
-        self.firebase.update_value(ref=ref, key="time_worked", value=self.time_worked)
+        time_worked_ref = f"{self.firebase_times_worked_ref}/{current_date}"
+        self.firebase.update_value(ref=time_worked_ref, key="time_worked", value=self.time_worked)
 
     def run_timer(self):
         """Function that runs the timer of the Pomodoro App (in a separate thread).
@@ -350,19 +390,19 @@ class PomodoroApp:
                 sleep(0.1)
                 if self.stop_timer_thread_flag:
                     self.log.info("Stopping timer thread (stop_timer_thread_flag was set)")
-                    self.state = State.READY
-                    self.current_timer_value = self.work_timer_duration
-                    self.update_display()
                     self.stop_timer_thread_flag = False
                     return
             self.current_timer_value -= 1
-            if self.state == State.WORK:
+            if self.current_state == State.WORK:
                 self._increase_time_worked()
             if self.time_worked % 60 == 0:
-                self.features.call("Habit Tracking", "post_checkin",
-                                   {"habit_name": CONFIG["HABIT_NAME"],
-                                    "date_stamp": datetime.now().strftime("%Y%m%d"),
-                                    "value": self.time_worked / 60})
+                self.feature_handler.call(feature_name="Habit Tracking",
+                                          method="post_checkin",
+                                          kwargs={
+                                              "habit_name": self.ticktick_habit_name,
+                                              "date_stamp": datetime.now().strftime("%Y%m%d"),
+                                              "value": self.time_worked / 60
+                                          })
             self.update_display()
         if self.current_timer_value == 0:
             self.log.info("Timer done. Switching to next state.")
@@ -370,9 +410,9 @@ class PomodoroApp:
 
 
 if __name__ == "__main__":
-    assert os.getenv("APPDATA", False), "APPDATA env-var not set, probably not running on windows"
-    os.environ["APPDATA_DIR"] = "Pomo"
-    pomo_app = PomodoroApp(firebase_rdb_url=secret("FIREBASE_DB_URL"))
-    while True:
-        # to keep python out of interpreter shutdown (3.12)
-        sleep(100000000)
+    assert os.getenv("APPDATA", False)
+    pomo_app = PomodoroApp(firebase_rtdb_url=secret("FIREBASE_DB_URL"))
+
+    # to keep python out of interpreter shutdown (3.12)
+    while pomo_app.exited_flag is False:
+        sleep(10)
