@@ -332,6 +332,8 @@ class PomodoroApp:
         self.current_timer_value = self.work_timer_duration
         self.update_display()
         self.stop_timer_thread_flag = True
+        self.feature_handler.call("Play Sound", "_play_sound",
+                                  {"file_path": f'{self.sound_files[self.current_state]}'})
         self.feature_handler.call("Spotify", "play_playlist",
                                   {"playlist_uri": self.playlists[self.current_state]})
         self.feature_handler.call("Home Assistant", "trigger_webhook",
@@ -345,12 +347,7 @@ class PomodoroApp:
             self.log.info("Switching WORK -> PAUSE state")
             self.current_state = State.PAUSE
             self.current_timer_value = self.pause_timer_duration
-            self.feature_handler.call("Play Sound", "_play_sound",
-                                      {"file_path": self.sound_files[self.current_state]})
-            self.feature_handler.call("Hide Windows", "minimize_open_windows")
-            sleep(1)
-            self.feature_handler.call("Spotify", "play_playlist",
-                                      {"playlist_uri": self.playlists[self.current_state]})
+            self.feature_handler.call(feature_name="Hide Windows", method="minimize_open_windows")
         elif self.current_state == State.PAUSE and self.time_worked < self.daily_work_goal:
             self.log.info("Switching PAUSE -> WORK state")
             self.current_state = State.READY
@@ -361,10 +358,15 @@ class PomodoroApp:
             self.current_state = State.DONE
             self.current_timer_value = self.work_timer_duration
 
-        # reset the timer, update the icon and trigger webhook
+        # reset the timer, update the icon and call the features
         self.update_display()
-        self.feature_handler.call(feature_name="Home Assistant", method="trigger_webhook",
-                                  kwargs={"url": self.webhooks[self.current_state]})
+        self.feature_handler.call("Play Sound", "_play_sound",
+                                  {"file_path": self.sound_files[self.current_state]})
+        self.feature_handler.call("Spotify", "play_playlist",
+                                  {"playlist_uri": self.playlists[self.current_state]})
+        self.feature_handler.call("Home Assistant", "trigger_webhook",
+                                  {"url": self.webhooks[self.current_state]})
+        # autostart the pause timer
         if self.current_state == State.PAUSE:
             self.run_timer()
 
