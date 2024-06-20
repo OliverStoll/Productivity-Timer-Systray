@@ -279,8 +279,10 @@ class PomodoroApp:
                                                        color=self.colors[self.current_state])
 
     # MENU BUTTON ACTIONS
-    def menu_button_change_timer(self, changing_timer, value):
-        self.log.info(f"Changing {changing_timer} timer by {value}")
+    def menu_button_change_timer(self, changing_timer, sign):
+        self.log.info(f"Changing {changing_timer} timer by {sign}")
+        sign = int(sign + "1")
+        value = sign * self.settings_step_size
         if changing_timer == "WORK":
             if self.current_state != State.PAUSE:
                 self.current_timer_value += value
@@ -353,7 +355,7 @@ class PomodoroApp:
             self.log.info("Switching PAUSE -> WORK state")
             self.current_state = State.READY
             self.current_timer_value = self.work_timer_duration
-            self.feature_handler.call(feature_name="Hide Windows", method="restore_windows")
+            self.feature_handler.call(feature_name="Hide Windows", method="restore_open_windows")
         elif self.current_state == State.PAUSE and self.time_worked >= self.daily_work_goal:
             self.log.info("Switching PAUSE -> DONE state")
             self.current_state = State.DONE

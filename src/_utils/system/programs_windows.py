@@ -79,7 +79,7 @@ class WindowHandler:
                 win.minimize()
                 self.log.debug(f"Minimized window: {window_info}")
 
-    def restore_windows(self):
+    def restore_open_windows(self):
         """Restore the minimized windows, with the focused window restored last"""
         focused_windows = [
             win_info for win_info in self.minimized_windows if win_info["is_focused"]
@@ -100,4 +100,4 @@ if __name__ == "__main__":
     handler.minimize_open_windows()
     print("Windows minimized", handler.minimized_windows)
     sleep(1)
-    handler.restore_windows()
+    handler.restore_open_windows()
