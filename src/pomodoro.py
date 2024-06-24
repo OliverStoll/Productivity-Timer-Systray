@@ -161,6 +161,7 @@ class PomodoroApp:
         self.current_timer_value = self.work_timer_duration
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.time_worked = self._load_time_worked_from_firebase()
+        self.update_habit_minutes = 15
 
 
         # systray app
@@ -381,6 +382,9 @@ class PomodoroApp:
             self.time_worked += 1
         time_worked_ref = f"{self.firebase_times_worked_ref}/{current_date}"
         self.firebase.update_value(ref=time_worked_ref, key="time_worked", value=self.time_worked)
+        if self.time_worked % self.update_habit_minutes == 0:
+            data = {'habit_name': self.ticktick_habit_name, 'date_stamp': current_date, 'value': self.time_worked / 60}
+            self.feature_handler.call("Habit Tracking", "post_checkin", data)
 
     def run_timer(self):
         """Function that runs the timer of the Pomodoro App (in a separate thread).
@@ -397,17 +401,10 @@ class PomodoroApp:
                     self.stop_timer_thread_flag = False
                     return
             self.current_timer_value -= 1
+            self.update_display()
             if self.current_state == State.WORK:
                 self._increase_time_worked()
-            if self.time_worked % 60 == 0:
-                self.feature_handler.call(feature_name="Habit Tracking",
-                                          method="post_checkin",
-                                          kwargs={
-                                              "habit_name": self.ticktick_habit_name,
-                                              "date_stamp": datetime.now().strftime("%Y%m%d"),
-                                              "value": self.time_worked / 60
-                                          })
-            self.update_display()
+
         if self.current_timer_value == 0:
             self.log.info("Timer done. Switching to next state.")
             self._switch_to_next_state()
