@@ -72,3 +72,13 @@ pyinstaller -n Close_Spotify_On_Startup --onefile --noconsole \
 3. Pin the app to the Start menu for quick access.
 4. To auto-start at boot, create a shortcut and place it in the Startup folder:  
    Press `Win + R`, enter `shell:startup`, and drop the shortcut there.
+
+
+## 🤝 Contributing
+
+Contributions are welcome. Please open issues or pull requests for new features, improvements, or bug fixes.
+
+
+## 🪪 License
+
+This project is licensed under the MIT License. See the [License](LICENSE) file for details.
