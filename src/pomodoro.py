@@ -1,5 +1,5 @@
 # fix working directory if running from a pyinstaller executable
-import src._utils.distribution.pyinstaller_fix_workdir  # noqa
+import common_utils.distribution.pyinstaller_fix_workdir  # noqa
 
 # global
 import threading
@@ -9,20 +9,19 @@ from pystray import Menu, MenuItem as Item
 from datetime import datetime
 from time import sleep
 from threading import Thread
-from pprint import pformat
 
 # local
 from src.systray.utils import draw_icon_text, draw_icon_circle
-from src._utils.common import CONFIG, secret, load_env_file, ROOT_DIR
-from src._utils.logger import create_logger
-from src._utils.apis.spotify import SpotifyHandler
-from src._utils.apis.firebase import FirebaseHandler
-from src._utils.apis.homeassistant import HomeAssistantHandler
-from src._utils.system.sound import SoundHandler
-from src._utils.system.programs_windows import WindowHandler
-from src._utils.apis.ticktick_habits import TicktickHabitHandler
+from common_utils.config import CONFIG, secret, load_dotenv, ROOT_DIR
+from common_utils.logger import create_logger
+from common_utils.apis.firebase import FirebaseClient
+from common_utils.windows.sound import SoundHandler
+from common_utils.windows.programs_windows import WindowHandler
+from common_utils.apis.ticktick.habits import TicktickHabitHandler
 
-# from src._utils.system.bluetooth import bluetooth_is_enabled
+from apis.homeassistant import HomeAssistantHandler
+from apis.spotify import SpotifyHandler
+# from common_utils.system.bluetooth import bluetooth_is_enabled
 
 
 POMODORO_FEATURES = {
@@ -135,7 +134,7 @@ class PomodoroApp:
         secrets_path = f"{os.getenv('APPDATA')}/Pomodoro/.env"
         self._load_secrets_file(secrets_path=secrets_path)
 
-        self.firebase = FirebaseHandler(realtime_db_url=firebase_rtdb_url)
+        self.firebase = FirebaseClient(realtime_db_url=firebase_rtdb_url)
         self.firebase_settings_ref = CONFIG["FIREBASE_REF_SETTINGS"]
         self.firebase_times_worked_ref = CONFIG["FIREBASE_REF_TIME_DONE"]
         feature_settings = CONFIG["default_settings"]["features"]
@@ -187,7 +186,7 @@ class PomodoroApp:
 
     def _load_secrets_file(self, secrets_path):
         if os.path.exists(secrets_path):
-            load_env_file(secrets_path)
+            load_dotenv(secrets_path)
             self.log.info(f"Loaded .env file from {secrets_path}")
 
     def _init_settings_from_firebase(self):
@@ -383,7 +382,8 @@ class PomodoroApp:
         time_worked_ref = f"{self.firebase_times_worked_ref}/{current_date}"
         self.firebase.update_value(ref=time_worked_ref, key="time_worked", value=self.time_worked)
         if self.time_worked % self.update_habit_minutes == 0:
-            data = {'habit_name': self.ticktick_habit_name, 'date_stamp': current_date, 'value': self.time_worked / 60}
+            date_stamp = datetime.now().strftime("%Y%m%d")
+            data = {'habit_name': self.ticktick_habit_name, 'date_stamp': date_stamp, 'value': self.time_worked / 60}
             self.feature_handler.call("Habit Tracking", "post_checkin", data)
 
     def run_timer(self):

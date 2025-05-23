@@ -1,51 +1,74 @@
-# Pomodoro Timer
-A Pomodoro Timer with Spotify & Home Assistant Integration.
+# 🕒 Pomodoro Timer
+A lightweight Pomodoro timer for Windows with optional Spotify and Home Assistant integrations.
 
-### Features
-- Start/Stop Timer
-- Increase/Decrease Timer Duration
----
-### Optional Features
-- Cloud Storage for Work/Pause Duration
-- Auto-Play Spotify Playlist on beginning of work/pause
-- Hide all windows on beginning of pause and show them again on beginning of work
-- Call a Home Assistant Service (via Webhook) on beginning of work/pause
+## ✅ Core Features
+- Start and stop a Pomodoro timer directly from the system tray.
+- Adjust timer duration on the fly.
 
-# How to install
-
-## Add Secrets File to use additional Features
-
-To play spotify playlists on start of work and pause, and changing the timer duration while it's running) , this package needs an `.env` file in the root directory with the following content:
-- `FIREBASE_DB_URL`: Link to your Firebase Realtime Database (needs to be unlocked for outside access)
-- `SPOTIFY_CLIENT_ID`
-- `SPOTIFY_CLIENT_SECRET`
-- `SPOTIFY_DEVICE_NAME`: Friendly name of the Spotify Device to play music on while working. (Kept in secrets instead of config, to not be shared between different workstations by accident)
-- `TICKTICK_USERNAME`: Email of the TickTick Account to use for increasing the "Arbeiten" habit count
-- `TICKTICK_PASSWORD`: 
-
-You can optain these by creating a Spotify Developer Account and a Firebase Project:
-- Firebase Realtime Database (*free version*): https://firebase.google.com/
-- Spotify Developer Account: https://developer.spotify.com/dashboard
+## 🔧 Optional Integrations
+These features require additional configuration via a `.env` secrets file:
+- 🔁 Sync work and pause durations via Firebase Realtime Database.
+- 🎵 Auto-play a Spotify playlist at the start of work or break periods.
+- 🪟 Hide all windows on break and restore them when resuming work.
+- 🏠 Trigger Home Assistant services through webhooks.
+- ✅ Update your “Arbeiten” habit on TickTick.
 
 
-When parts of the secrets are missing, the app will still work, but without the features mentioned above.
+## 📦 Installation
 
-## Build App
-After cloning the repository and creating the secrets file & virtual environment, run to install the dependencies and build the executable:
-```shell
-# Codeblock is reversed due to Pycharm bug
+### 1. Clone the Repository
+
+git clone https://github.com/OliverStoll/Productivity-Timer-Systray.git
+cd Productivity-Timer-Systray
+
+### 2. Create a `.env` File for Optional Features
+
+To enable Spotify, Firebase, or TickTick integrations, create a `.env` file in the root directory with the following keys:
+
+```
+FIREBASE_DB_URL=your_firebase_url  
+SPOTIFY_CLIENT_ID=your_spotify_client_id  
+SPOTIFY_CLIENT_SECRET=your_spotify_secret  
+SPOTIFY_DEVICE_NAME=name_of_spotify_device  
+TICKTICK_USERNAME=your_ticktick_email  
+TICKTICK_PASSWORD=your_ticktick_password
+```
+
+#### 🔗 Resources for Credentials
+- [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+- [Firebase Console](https://firebase.google.com/)  
+  Use the Realtime Database (free tier is sufficient)
+
+The app will still function without this file but without the enhanced features.
+
+
+## 🛠️ Build the Executables
+
+### Set Up the Environment
+
+pip install poetry  
 poetry install --no-root
-pip install poetry
+
+### Build the Pomodoro App
+
 ```
-```shell
-pyinstaller -i ../res/pomodoro.ico -n Pomo --onefile --noconsole --add-data "../config.yml;." --add-data "../.env;." --add-data "../res/*;res/" --specpath build/ .\src\pomodoro.py
-```
-```shell
-pyinstaller -n Close_Spotify_On_Startup --onefile --noconsole --specpath build/ .\src\close_spotify_startup.py
+pyinstaller -i ../res/pomodoro.ico -n Pomo --onefile --noconsole \
+--add-data "../config.yml;." --add-data "../.env;." \
+--add-data "../res/*;res/" --specpath build/ ./src/pomodoro.py
 ```
 
-## Setup Easy Access (*Windows*)
-- Run the app once
-- Display the `Pomo.exe` app in "*Taskbar-Settings -> Other system tray icons*" in the Taskbar settings
-- Pin the Pomo app to the Start Menu
-- Create a shortcut to the app and place it in the Startup folder (`shell:startup` path)
+### Optional: Build Spotify Cleaner Script
+
+```
+pyinstaller -n Close_Spotify_On_Startup --onefile --noconsole \
+--specpath build/ ./src/close_spotify_startup.py
+```
+
+
+## 🚀 Windows Setup (Recommended)
+1. Run `Pomo.exe` once to register the system tray icon.
+2. Enable the icon under  
+   `Settings → Personalization → Taskbar → Other system tray icons`.
+3. Pin the app to the Start menu for quick access.
+4. To auto-start at boot, create a shortcut and place it in the Startup folder:  
+   Press `Win + R`, enter `shell:startup`, and drop the shortcut there.
